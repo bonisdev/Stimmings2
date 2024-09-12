@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drag and Drop Image Processor</title>
+    <style>
+
+        body{
+            background-color: #2b3724;
+        }
+        #dropZone {
+            width: 300px;
+            height: 200px;
+            border: 2px dashed #cccccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            margin: 50px auto;
+            background-color: #aa6e6e;
+            color: #555555;
+            font-size: 16px;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        #dropZone.hover {
+            background-color: #eb6969;
+        }
+
+        #output {
+            margin: 20px auto;
+            width: 80%;
+            text-align: left;
+        }
+
+        .image-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .image-list img {
+            margin: 10px;
+            border: 1px solid #ddd;
+            padding: 5px;
+            width: 100px;
+            height: 100px;
+        }
+        
+    </style> 
+</head>
+<body>
+
+    <div id="dropZone">Drag and drop your images here</div>
+
+    <div class="radio-group">
+        <label>
+            <input type="radio" name="size" value="8x8" checked>
+            8x8
+        </label>
+        <label>
+            <input type="radio" name="size" value="16x16">
+            16x16
+        </label>
+        <label>
+            <input type="radio" name="size" value="32x32">
+            32x32
+        </label>
+        <span> * -> ONLY upload sprites this size or smoller</span>
+    </div>
+ 
+    <div id="lengerth"></div>
+    <textarea width="11" id="output"></textarea>
+
+    <br>
+    
+    <div id="lengerth2"></div>
+    <textarea width="11" id="dbIndices"></textarea>
+
+    <script>
+
+        var SIZE_MODE = "8x8";
+        var EXACT_PXIIEL = 8;
+
+        // Process image pixels function
+        function processImagePixels(img, width, height) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = width;
+            canvas.height = height;
+
+            ctx.imageSmoothingEnabled = false;
+            ctx.mozImageSmoothingEnabled = false;
+            ctx.webkitImageSmoothingEnabled = false;
+            ctx.msImageSmoothingEnabled = false;
+
+            img.style.imageRendering = 'pixelated';
+            img.style.imageRendering = 'crisp-edges';
+            img.width = width;
+            img.height = height;
+
+            
+            // get ratio vom dees
+            let epp = Math.floor(EXACT_PXIIEL / img.width);// extra pixel padding (2 for 8x8 when expecting a 16x16)
+                                                        //                        (4 for 8x8 when expecting a 32x32)
+
+            if( epp < 1 ){
+                console.log('oh nooo this vcal is: ', epp)
+                console.log('ERRRRRRRRRROOOOOORRRRRRRRR')
+            }
+
+            ctx.drawImage(img, 0, 0, width, height);
+            const imageData = ctx.getImageData(0, 0, width, height).data;
+            const packedPixels = [];
+            for (let y = height - 1; y >= 0; y-=1) {
+                for (let x = 0; x < width; x+=1) {
+                    
+                    const index = ((y) * width + (x)) * 4;      // I think just a slower trickle on this 
+                    const r = imageData[ index ];
+                    const g = imageData[ index + 1 ];
+                    const b = imageData[ index + 2 ];
+                    const a = imageData[ index + 3 ];
+                    
+                    const packedValue = (a << 24) | (b << 16) | (g << 8) | r;
+                    packedPixels.push(packedValue);
+
+                    // for( let j = 0;j < epp;j++){            // <- extra padding for repeat additions of the same col ()
+                    //     for( let i = 0;i < epp;i++){        //          (x1,   x2,    x4  ) 
+                    //     }    
+                    // }
+
+                }
+            }
+            return packedPixels;
+        }
+        // Function to read a file and return a Promise with image data
+        function readFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => resolve(img);
+                    img.onerror = reject;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Function to process files sequentially
+        async function processFilesSequentially(files) {
+            const processedResults = [];
+            const imageList = document.createElement('div');
+            imageList.className = 'image-list';
+            //output.innerHTML = ''; // Clear previous output
+            output.appendChild(imageList);
+
+            for (const file of files) {
+                try {
+                    const img = await readFile(file);
+                    imageList.appendChild(img);
+                    const result = processImagePixels(img, EXACT_PXIIEL, EXACT_PXIIEL);
+                    processedResults.push(result);
+                    console.log(`Processed pixels for ${file.name}:`, result);
+                } catch (error) {
+                    console.error(`Error processing file ${file.name}:`, error);
+                }
+            }
+
+            // Concatenate the results
+            console.log('Final concatenated results:', processedResults.flat());
+            output.value += `[ ${processedResults.flat()} ]`;
+        }
+        // Setup drag-and-drop
+        const dropZone = document.getElementById('dropZone');
+        const output = document.getElementById('output');
+
+        dropZone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            dropZone.classList.add('hover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('hover');
+        });
+
+        dropZone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            dropZone.classList.remove('hover');
+            const files = Array.from(event.dataTransfer.files);
+
+            // Filter images and sort them by filenames
+            const imageFiles = files.filter(file => file.type.startsWith('image/'));
+            console.log(files)
+            imageFiles.sort((a, b) => Number((a.name+'').split('.')[0]) - Number((b.name+'').split('.')[0]));
+
+            // Process files sequentially
+            processFilesSequentially(imageFiles);
+        }); //output.value = '[ ' + processedResults.flat() + ' ]';
+
+        document.querySelectorAll('input[name="size"]').forEach((radio) => {
+            radio.addEventListener('change', function() {
+                //document.getElementById('result').textContent = `Selected: ${this.value}`;
+                SIZE_MODE = '' + this.value;
+                EXACT_PXIIEL = Number(SIZE_MODE.split('x')[0]);
+            });
+        });
+    </script>
+
+</body>
+</html>

@@ -1,9 +1,1271 @@
-<html>
-	<head>
-		<title>Stimmings Hub</title>
-	</head>
-	
-	<body>
-		<p>Stimmers</p>
-	</body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Stimmings 2</title>
+    <!--https://stackoverflow.com/questions/76186759/writing-a-full-game-in-wgsl-->
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow-y: hidden;
+            overflow-x: hidden;
+            width: 100%;
+            height: 100%;
+            background-color: #05111f;
+            font-size: 16px; 
+            font-family: 'Consolas', monospace; 
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            /*height: 100%;*/
+            /*pointer-events: none;  Allows clicks to pass through to the canvas */
+            display: flex;
+            /*justify-content: center;
+            align-items: center;*/
+            color: white;
+            font-size: 20px;
+            background-color: #1d3015d3;
+            border: none;
+        }
+
+        #openCloserThing{
+            z-index: 56;
+            position: absolute;
+            bottom: 0;
+            left: 0; 
+            padding: 13px;
+            color: rgb(220, 231, 231);
+            background-color: #19413fd3;
+            border: none;
+            cursor: pointer;
+        }
+        @keyframes pulse {
+			0% {
+				box-shadow: 0px 0px 0px 1px rgba(165, 165, 165, 0.04),
+							-9px 9px 9px -0.5px rgba(0, 0, 0, 0.04),
+							-18px 18px 18px -1.5px rgba(0, 0, 0, 0.08),
+							-37px 37px 37px -3px rgba(0, 0, 0, 0.16),
+							-75px 75px 75px -6px rgba(0, 0, 0, 0.24),
+							-150px 150px 150px -12px rgba(0, 0, 0, 0.48);
+			}
+			50% {
+				box-shadow: 0px 0px 0px 1px rgba(165, 165, 165, 0.05),
+							-9px 9px 9px -0.5px rgba(0, 0, 0, 0.05),
+							-18px 18px 18px -1.5px rgba(0, 0, 0, 0.10),
+							-37px 37px 37px -3px rgba(0, 0, 0, 0.18),
+							-75px 75px 75px -6px rgba(0, 0, 0, 0.26),
+							-150px 150px 150px -12px rgba(0, 0, 0, 0.50);
+			}
+			100% {
+				box-shadow: 0px 0px 0px 1px rgba(165, 165, 165, 0.04),
+							-9px 9px 9px -0.5px rgba(0, 0, 0, 0.04),
+							-18px 18px 18px -1.5px rgba(0, 0, 0, 0.08),
+							-37px 37px 37px -3px rgba(0, 0, 0, 0.16),
+							-75px 75px 75px -6px rgba(0, 0, 0, 0.24),
+							-150px 150px 150px -12px rgba(0, 0, 0, 0.48);
+			}
+		}
+        .hidden{
+            transition: all 1s ease-in-out !important;
+            opacity:0;
+            max-height:0;
+            max-width:0;
+            display:none;
+            padding:0 !important;
+            margin:0 !important;
+            border:none !important;
+            overflow:hidden;
+        }
+        .disable-selectt {
+            user-select: none; /* supported by Chrome and Opera */
+            -webkit-user-select: none; /* Safari */
+            -khtml-user-select: none; /* Konqueror HTML */
+            -moz-user-select: none; /* Firefox */
+            -ms-user-select: none; /* Internet Explorer/Edge */
+            -webkit-user-drag: none;
+        }
+        .pixel-perfect {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges; /* for some browsers */
+            width: 8px;  /* or the actual width of your image */
+            height: 8px; /* or the actual height of your image */
+        }
+
+
+
+        
+        /*Rounded elment*/ 
+		.rounded-element {
+			/*width: calc(60vw); 
+			border-radius: 15px;  
+			background: linear-gradient(195deg, #715555, #536176);  
+			padding: 20px;  
+			color: #ffffff; 
+			animation: pulse 3s infinite; */
+
+            position: absolute;
+            top: 15px;
+			color: #ffffff; 
+            max-width: 600px; 
+            border-radius: 15px;
+            padding: 15px;
+			background: linear-gradient(195deg, #534242, #536176);  
+            border-radius: 15px; 
+
+		}
+
+        /*Drop down*/
+        .dropdown select {
+            width: 260px;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+            appearance: none;
+            font-family: 'Consolas', monospace; 
+            background-color: #fff;
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIj48cGF0aCBkPSJNNSAxMmw3IDcgNy03Ii8+PC9zdmc+');
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+        }
+        
+        .dropdown select:focus {
+            border-color: #007BFF;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+            outline: none;
+        }
+
+        #demoCanvasContainer{
+            text-align: center;
+        }
+
+
+        h1{
+            font-size: 48px;
+        }
+
+        a{
+            color: #8febff;
+        }
+
+        .info-section{
+            width: 100%;
+			border-radius: 15px; /* Adjust the value to control the roundness */
+            border: 1px rgb(38, 176, 98) solid;
+        }
+        .todo-section{
+            width: 100%;
+			border-radius: 15px; /* Adjust the value to control the roundness */
+            border: 1px rgb(198, 190, 36) solid;
+        }
+
+        /* Cod eeditor*/
+        .code-editor-container {
+            width: 600px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #361414;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: #007BFF;
+            color: white;
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;
+        }
+        
+        .editor-header button {
+            background-color: white;
+            color: #007BFF;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .editor-header button:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .editor {
+            display: flex;
+            font-family: 'Consolas', monospace;
+            height: 300px;
+        }
+        
+        .line-numbers {
+            padding: 10px;
+            background-color: #f7f7f7;
+            border-right: 1px solid #ccc;
+            user-select: none;
+            color: #999;
+            text-align: right;
+        }
+        
+        .line-numbers div {
+            line-height: 20px;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            resize: none;
+            outline: none;
+            font-family: 'Consolas', monospace;
+            line-height: 20px;
+            overflow: auto;
+        }
+
+        #extraTitle{
+            color: rgb(238, 208, 40)
+        }
+
+
+        /* Editor */
+        #grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+            grid-auto-rows: minmax(32px, auto);
+            gap: 20px; /* Slightly smaller padding between images */
+            padding: 15px;
+            overflow-y: auto;
+            height: 340px;/*100vh;*/
+            width: 250px;
+            box-sizing: border-box;
+            background-color: black; /* Ensure the grid background is black */
+            scroll-behavior: smooth;
+        }
+        #all-ents-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+            grid-auto-rows: minmax(32px, auto);
+            gap: 20px; /* Slightly smaller padding between images */
+            padding: 15px;
+            overflow-y: auto;
+            height: 340px;/*100vh;*/
+            width: 250px;
+            box-sizing: border-box;
+            background-color: black; /* Ensure the grid background is black */
+            scroll-behavior: smooth;
+        }
+        .image-box {
+            width: 32px;
+            height: 32px;
+            background-color: transparent;
+            transition: transform 0.4s ease-in-out; /* Delayed translation animation */
+        }
+        .image-box img {
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated; /* Disable anti-aliasing for crisp images */
+            image-rendering: crisp-edges; /* For compatibility with different browsers */
+        }
+        .imgmg-dfdf{ 
+            image-rendering: pixelated; /* Disable anti-aliasing for crisp images */
+            image-rendering: crisp-edges; /* For compatibility with different browsers */
+        }
+        .highlight {
+            outline: 2px solid red;
+        }
+    </style>
+
+    <style>
+        .toolbut{
+            min-width: 40px;
+            min-height: 40px;
+            background-color: #361414;
+            color:#e0e0e0;
+            text-align: center;
+        }
+        .toolbut:hover{ 
+            background-color: #532828;
+        }
+
+        #list-container {
+            min-width: 300px;
+            width: 300px;
+            height: 340px; /* Fixed height */
+            overflow-y: scroll; /* Enable vertical scrolling */
+            border: 1px solid #352c2c;
+        }
+        
+        .list-item {
+            display: flex;
+            align-items: center;
+            padding: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .list-item:hover {
+            background-color: #2e2626; /* Change background color on hover */
+        }
+        
+        .list-item img {
+            width: 32px;
+            height: 32px;
+            margin-right: 10px;
+        }
+
+
+
+
+        /* FOR the outro value */
+        #info-container {
+            display: flex;
+            width: 600px;
+            height: 300px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        
+        #row-container {
+            font-size: 14px;
+            width: 320px;
+            height: 340px;
+            min-width: 320px;
+            border-right: 1px solid #ccc;
+            overflow-y: auto;
+        }
+        
+        .row-item-unique {
+            font-size: 12px;
+            padding: 2px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .row-item-unique:hover {
+            font-size: 12px;
+            background-color: #441919; /* Change background color on hover */
+        }
+        
+        #info-blurb-container {
+            font-size: 15px;
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        
+
+    </style>
+	<link rel="shortcut icon" type="image/x-icon" href="src/largeking.ico">
+    <script src="util/sprites_compiled64.js"></script>
+
+    <!-- <script src="src/PseudRand.js"></script> -->
+    <script src="src/EZWG.js"></script>
+    <script src="util/all_ents.js"></script>
+    
+    <script src="src/examples/Ex1_Standard_CGOL.js"></script>
+    <script src="src/examples/Ex2_Quadrant_CGOL.js"></script>
+    <script src="src/examples/Ex3_MultiPart.js"></script>
+    <script src="src/examples/Ex4_MultiStorage.js"></script>
+    <script src="src/examples/Ex5_GPUBufferRead.js"></script>
+    <script src="src/examples/Ex6_MultiVal_CGOL.js"></script>
+    <script src="src/examples/Ex7_MouseInput_CGOL.js"></script>
+    <script src="src/examples/Ex8_RGBA_Bit_Packing.js"></script>
+    <script src="src/examples/Ex9_Stimmings2_compiled.js"></script>
+    <script src="src/examples/Ex10_Weird_Integer.js"></script>
+    <script src="src/examples/Ex11_NNRecorder.js"></script>
+    <script src="src/examples/Ex13_GA_Test.js"></script>
+</head>
+<body>
+    <div id="demoCanvasContainer"></div>
+    <div id="hud">
+        <div id="grid-container"></div>
+
+        <div id="entEditorPlace"> </div>
+<!-- 
+        <button onclick="saveEnts()" value="save ents">save ents</button> -->
+
+        <!-- <button onclick="toggleToEntView()"> toggle </button> -->
+
+        <div class="hidden" id="all-ents-container"></div>
+        <div id="list-container"></div>
+
+        <div id="info-container">
+            <div id="row-container"></div>
+            <div id="info-blurb-container">Hover over a row to see more information.</div>
+            <h3 id="indLastClick"></h3>
+        </div>
+         
+    </div>
+    <div id="openCloserThing" onclick="switchHud()">
+        <h2>edit</h2>
+    </div>
+
+
+    <script>
+
+        var VIEWING_ENTS = false;
+        var ALL_ENTS = EntEntries;//[];
+
+        console.log('beginning index2.html logic')
+        console.log(ALL_ENTS)
+
+        var LAST_CLICKED_ENT = 0;
+
+        var ALL_IMGS = [];
+
+        var ANIM_COUNTER = 0;
+
+        var SHOWINGHUD = true;
+
+        function switchHud(){
+            SHOWINGHUD = !SHOWINGHUD;
+            if(SHOWINGHUD){
+                document.getElementById('hud').classList.remove('hidden')
+            }
+            else{
+                document.getElementById('hud').classList.add('hidden')
+            }
+        }
+
+        function flattenArrayExceptFirstTwo(arr) {
+            return arr.reduce((acc, subArray) => {
+                if (subArray.length <= 3) {
+                    return acc; // Ignore sub-arrays with two or fewer elements
+                } else {
+                    return acc.concat(subArray.slice(3)); // Flatten everything except the first two elements
+                }
+            }, []);
+        }
+
+        // Render a single ent's values
+        function renderNewEntForm( enter ){
+            console.log(ALL_ENTS[enter])
+            renderRows(enter);
+        }
+
+        async function loadEntities() {
+            const response = await fetch('http://localhost:6350/send-all-ents')
+            .then(response => response.text())  // Use `.text()` to handle large string responses
+            .then(data => {
+                // console.log('Received large string of length:', data);
+                ( 0, eval )( data );
+
+                // THIS LOADS THE ENT ENTRIES []
+
+                ALL_ENTS = EntEntries;
+                console.log(ALL_ENTS)
+
+                //renderList();
+                //CycleThroughImgs();
+
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function CycleThroughImgs(){
+            let area = document.getElementById('all-ents-container')
+            area.innerHTML = '';
+            for(let v = 0;v < ALL_ENTS.length;v++){
+                let divr = document.createElement('div');
+                divr.innerHTML = ALL_ENTS[v][2]
+                area.appendChild(
+                    divr
+                )
+            }
+
+            console.log(ALL_ENTS)
+        }
+
+
+        function toggleToEntView(){
+            VIEWING_ENTS = !VIEWING_ENTS;
+
+            if( VIEWING_ENTS ){
+
+            }
+            else{
+
+            }
+        }
+
+
+        function saveEnts(){
+            let entems = 
+`
+var EntEntries = [
+`;
+            for(let j = 0;j < ALL_ENTS.length;j++){
+                entems += 
+`
+// Wandering stim 2
+[
+    "${ALL_ENTS[j][0]}",                                    // Names
+    ["", "", "", ""],                                       // Sounds
+    CL.PHYSICS_ALLEGIANCED | CL.PHYSICS_RES_WORKER,                                     // Physics flags of the entity
+    EZWG.createPackedU32_16( EZWG.createPackedU16_8(2, CL.ANIMATION_VFAST), 129 ),  // animSize, animFreq, animStart (16 bytes)
+    EZWG.createPackedU32( 0, 0, CL.FREQ_FAST, CL.DESIRE_RES ),                      // Idk, Idk, MoveFreq, Desire
+    
+    EZWG.createPackedU32_16( 0, 4 ),                    //  Damage Profile ID (max of 65535),Scent Profile ID (max of 65535),
+
+    CL.PHYSICS_RES,             // Goodness from profile
+    0,                          // Badness from profile, 
+    0,                          // Trans1 from profile 
+    0,                          // Trans2 from profile, 
+    
+    EZWG.createPackedU32_16( 65535, 0 ),                // Badness max, Goodness max
+    EZWG.createPackedU32_16( 65535, 65535 ),            // Trans 2 max, Trans 1 max
+    
+    EZWG.createPackedU32_16( 1, 1 ),                    // Badness power, Goodness power
+    EZWG.createPackedU32_16( 0, 0 ),                    // Trans 2 power, Trans 1 power
+
+    EZWG.createPackedU32_16( 0, 0 ),                    // Badness ambient, Goodness ambient
+    EZWG.createPackedU32_16( 0, 0 ),                    // Trans 2 ambient, Trans 1 ambient
+
+    EZWG.createPackedU32_16( 0, 6 ),                    // Badness result, Goodness result
+    EZWG.createPackedU32_16( 0, 0 ),                    // Trans 2 result, Trans 1 result
+
+    EZWG.createPackedU32( 0, 0, 0, 0 ),                 // TYPE OF TRANSOFRM, trans 2, trans 1, bad, good
+                                                        // 0 = self transofmr, 1 = in desired scent direction, 2,3,4,5 in desired scent direction ( ADDS one to trans 2, trans 1, bad, good )
+
+    EZWG.createPackedU32( 0, 0, 0, 0 ),              //  -ONE Shot or not (1 yes, 0 is cummulatibve)
+    EZWG.createPackedU32_16( 0, 0 ),            // ??? idk ??, drop value every move
+
+],
+`;
+            }
+            entems += 
+`
+];
+
+`;
+
+            fetch('http://localhost:6350/save-all-entities', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ largeString: entems })
+            })
+            .then(response => {
+                return response.text(); // Get the raw response as text for debugging
+            })
+            .then(data => {
+                console.log( data); // This should help you see what's returned
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+
+        function saveSomeEntites(){
+            const dataArray = [1, 2, 3, 4, 5]; // Replace this with your actual array
+
+            fetch('http://localhost:6350/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ data: dataArray })
+            })
+            .then(response => {
+                return response.text(); // Get the raw response as text for debugging
+            })
+            .then(data => {
+                console.log('Raw response:', data); // This should help you see what's returned
+                
+                // Example usage:
+                const exampleArray = [
+                    [1, 2, 3, 4],
+                    [5, 6, 7, 8, 9],
+                    [10, 11],
+                    [12, 13, 14]
+                ];
+
+                const flattenedArray = flattenArrayExceptFirstTwo(exampleArray);
+                console.log(flattenedArray);
+
+
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+
+        }
+
+        function getTheEditorImgs(){
+            const container = document.getElementById('grid-container');
+            const IMAGE_SIZE = 32; // Image size
+            const MAX_MAGNIFY_DISTANCE = 250; // Area of effect for translation
+            const TRANSLATION_DISTANCE = 10; // Distance to translate images away from the mouse
+            const DA_URL = 'http://localhost:6350/images';
+            const DA_URL_compedimages = 'http://localhost:6350/final_compiled/';
+            const PROXY_URL = 'http://localhost:3000/proxy?url='; // Base proxy URL
+            let images = [];
+            let closestImageIndex = -1;
+
+            async function loadImages() {
+                try {
+                    //const response = await fetch(DA_URL);
+                    //const imagesList = await response.json(); 
+                    //if (!Array.isArray(imagesList)) {
+                    //    throw new Error('Expected an array of image filenames');
+                    //}
+                    ALL_IMGS = spriteb64s;
+                    //console.log(ALL_IMGS)
+                    
+
+                    images = ALL_IMGS.map(src => {
+                        const img = new Image();
+                        // Construct the correct file path for the proxy request
+                        //const filePath = `file:///${DIRNAME_SERVER}/util/final_compiled/${src}`;//`file:///R:/util/final_compiled/${src}`;
+                        img.src = 'data:image/png;base64,' + src;//`${DA_URL_compedimages}${src}`;//`${PROXY_URL}${filePath}`;
+                        const div = document.createElement('div');
+                        div.className = 'image-box';
+                        div.appendChild(img);
+                        container.appendChild(div);
+                        return { img, div };
+                    });
+
+                    renderList();
+                    updateGrid();
+                } catch (error) {
+                    console.error('Failed to load images:', error.message);
+                }
+            }
+
+
+
+            function updateGrid(mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2) {
+                let minDist = Infinity;
+                closestImageIndex = -1;
+
+                // First pass to determine the closest image
+                images.forEach((imageData, index) => {
+                    const rect = imageData.div.getBoundingClientRect();
+                    const x = rect.left + IMAGE_SIZE / 2;
+                    const y = rect.top + IMAGE_SIZE / 2;
+
+                    // Calculate distance from mouse pointer
+                    const dist = Math.hypot(mouseX - x, mouseY - y);
+
+                    // Determine if this is the closest image
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestImageIndex = index;
+                    }
+
+                    // Reset styles for all images
+                    imageData.div.style.transform = '';
+                    imageData.div.classList.remove('highlight');
+                });
+
+                // Apply highlighting to the closest image
+                if (closestImageIndex !== -1) {
+                    const imageData = images[closestImageIndex];
+                    imageData.div.classList.add('highlight');
+
+                    // Apply translation to other images within MAX_MAGNIFY_DISTANCE
+                    images.forEach((imageData, index) => {
+                        if (index !== closestImageIndex) {
+                            const rect = imageData.div.getBoundingClientRect();
+                            const dist = Math.hypot(mouseX - rect.left, mouseY - rect.top);
+                            if (dist < MAX_MAGNIFY_DISTANCE) {
+                                const normalizedDist = dist / MAX_MAGNIFY_DISTANCE;
+                                const translationFactor = 1 - normalizedDist;
+                                const angle = Math.atan2(rect.top - mouseY, rect.left - mouseX);
+
+                                const translateX = Math.cos(angle) * TRANSLATION_DISTANCE * translationFactor;
+                                const translateY = Math.sin(angle) * TRANSLATION_DISTANCE * translationFactor;
+
+                                imageData.div.style.transform = `translate(${translateX}px, ${translateY}px)`;
+                            }
+                        }
+                    });
+                }
+            }
+
+            container.addEventListener('mousemove', (event) => {
+                const mouseX = event.clientX;
+                const mouseY = event.clientY;
+                updateGrid(mouseX, mouseY);
+            });
+
+            container.addEventListener('click', () => {
+                if (closestImageIndex !== -1) {
+                    const selectedImage = images[closestImageIndex];
+                    console.log('Selected Image:', selectedImage.img.src);
+                    
+                    document.getElementById('indLastClick').innerHTML = closestImageIndex;//(ALL_ENTS[index][4] & 0x0000FFFF);
+                }
+            });
+
+            loadImages();
+        }
+        
+
+
+
+        // NOW ALSO FOR THE LIST OF ITEMS:
+        const hub = [
+            { name: 'Item 1', images: ['image1a.jpg', 'image1b.jpg', 'image1c.jpg'] },
+            { name: 'Item 2', images: ['image2a.jpg', 'image2b.jpg', 'image2c.jpg'] },
+            { name: 'Item 3', images: ['image3a.jpg', 'image3b.jpg', 'image3c.jpg'] },
+            // Add more items as needed
+        ];
+        
+
+        function renderList() {
+            const container = document.getElementById('list-container');
+            container.innerHTML = ''; // Clear existing content
+
+            
+            //const DA_URL_compedimages = 'http://localhost:6350/final_compiled/';
+
+            ALL_ENTS.forEach((item, index) => {
+                const listItem = document.createElement('div');
+                listItem.className = 'list-item';
+
+                
+                const img = new Image();
+                let vall = (item[4] & 0x0000FFFF); 
+                //const img = document.createElement('img');
+                vall = 'data:image/png;base64,' + spriteb64s[vall];
+                //console.log(ALL_IMGS)
+                img.classList.add('imgmg-dfdf')
+                img.src = vall; // Start with the first image
+                img.dataset.currentImage = 0; // Store the current image index
+                
+                
+                // Construct the correct file path for the proxy request
+                //const filePath = `file:///${DIRNAME_SERVER}/util/final_compiled/${src}`;//`file:///R:/util/final_compiled/${src}`;
+                //img.src = `${DA_URL_compedimages}${src}`;//`${PROXY_URL}${filePath}`;
+                const div = document.createElement('div');
+                div.className = 'image-box';
+                div.appendChild(img);
+                
+                const name = document.createElement('span');
+                name.textContent = item[0];
+
+                listItem.appendChild(img);
+                listItem.appendChild(name);
+                
+                // Add click event listener
+                listItem.addEventListener('click', () => {
+                    handleItemClick(index, img);
+                });
+
+                container.appendChild(listItem);
+            });
+        }
+
+        function handleItemClick(index, imgElement) {
+            const currentImageIndex = parseInt(imgElement.dataset.currentImage, 10);
+            //const newImageIndex = (currentImageIndex + 1) % hub[index].images.length;
+            
+            //imgElement.src = hub[index].images[newImageIndex]; // Cycle to the next image
+            //imgElement.dataset.currentImage = newImageIndex; // Update the current image index
+
+            LAST_CLICKED_ENT = Number(index);
+            CURRENT_TOOL = 3;
+
+            document.getElementById('indLastClick').innerHTML = 
+                (ALL_ENTS[index][4] & 0x0000FFFF);
+            
+            renderNewEntForm(index)
+            // Call the function with the index
+            console.log('Item clicked:', index);
+        }
+    </script>
+
+    <script>
+
+        // THIS IS WHERE THE INFO AREA IS TO BE STORED AND MANIPUALTED 
+        
+        function u32ToBinaryString(number) {
+            // Ensure the number is treated as an unsigned 32-bit integer
+            let u32 = number >>> 0;
+            // Convert the number to a binary string with 32 bits
+            let binaryString = u32.toString(2).padStart(32, '0');
+            return binaryString;
+        }
+
+        function getFarOut(indd){
+            let rrr = indd * 1594;
+            return {
+                r: Math.floor(Math.cos(indd*1782)*56 + 199),
+                g: Math.floor(Math.sin(indd*111982)*56 + 199),
+                b: Math.floor(Math.cos(indd*9112)*56 + 199)
+            }
+        }
+
+        function getDesireType( val ){
+            
+            let dakeys = Object.keys(DESIR);
+            
+            for(let n = 0;n < dakeys.length;n++){
+                if( val === DESIR[dakeys[n]]){
+                    return dakeys[n]
+                }
+            }
+            return -1;
+        }
+
+        function getPhysicsProfile(val){
+            
+            let u32 = val >>> 0; 
+            console.log(PHYS)
+            let dakeys = Object.keys(PHYS);
+            let end = '';
+            for(let n = 0;n < dakeys.length;n++){
+                console.log(PHYS[dakeys[n]]);
+                if( ( PHYS[dakeys[n]] & u32 ) > 0){
+                    
+                    let col = getFarOut( PHYS[dakeys[n]] );
+                    let ir = 255 - col.r;
+                    let ig = 255 - col.g;
+                    let ib = 255 - col.b;
+                    end += '<span style=\"color: rgb(' + col.r +',' + col.g + ',' + col.b +
+                        ');background-color: rgb(' + ir +',' + ig + ',' + ib +');\">' + dakeys[n]+', </span>';
+                }
+            }
+            return end;
+        }
+
+        function fourKind(lbll, good, bad, t1, t2 ){
+            let ann = '';
+            ann += 
+                `<span style="color: rgb(230, 20, 230);">${lbll}: ${t2}</span>`;
+            ann += 
+                `<span style="color: rgb(20, 230, 230);">${lbll}: ${t1}</span>`;
+            ann += 
+                `<span style="color: rgb(20, 230, 20);">${lbll}: ${good}</span>`;
+            ann += 
+                `<span style="color: rgb(230, 20, 20);">${lbll}: ${bad}</span>`;
+            return ann;
+        }
+
+        function renderRows(enterind) {
+
+            let ent = ALL_ENTS[ enterind ];
+            
+            let pysic = getPhysicsProfile(ent[3])
+
+            const rows = [
+                { title: `( ${enterind} )  ${ent[0]}`, info: `Desc: ${ent[1]} <br> Sfx: ${ent[2]}` },
+                { title: ''+pysic, info: 'Which phsyics flags are present <br>' + pysic },
+                { title: `anim: ind:[<span style="color: rgb(250, 190, 10);background-color: rgb(23, 23, 23);">${ent[4]&0x0000FFFF}</span>]  size_${(ent[4] >> 24)&0x000000FF}  |  frq.${(ent[4] >> 16)&0x000000FF}`, info: 'sprite meta' },
+                { title: `desire:${getDesireType(ent[5]&0x000000FF)}  speed:${ (ent[5] >> 8) & 0x000000FF}`, info: 'Desire + Move Freq' },
+
+                
+                { title: `dmg prof.:${(ent[6] >> 16)&0x0000FFFF}  scnt prof.:${ (ent[6]) & 0x0000FFFF}`, info: 'Scent Profile 0x0000FFFF<br>Dmg Profile 0xFFFF0000' },
+                
+                { title: `goodness from: ${getPhysicsProfile(ent[7])}  `, info: 'Goodness from' },
+                { title: `badness from: ${getPhysicsProfile(ent[8])}  `, info: 'Badness from' },
+                { title: `trans1 from: ${getPhysicsProfile(ent[9])}  `, info: 'Trans1 from' },
+                { title: `trans2 from: ${getPhysicsProfile(ent[10])}  `,info: 'Trans2 from' },
+
+                
+                { title: `${fourKind('max', (ent[11] >> 0) & 0x0000FFFF, (ent[11] >> 16) & 0x0000FFFF, (ent[12] >> 0) & 0x0000FFFF, (ent[12] >> 16) & 0x0000FFFF)}  `,info: 'Max values before result is triggered' },
+
+                { title: `${fourKind('pwr', (ent[13] >> 0) & 0x0000FFFF, (ent[13] >> 16) & 0x0000FFFF, (ent[14] >> 0) & 0x0000FFFF, (ent[14] >> 16) & 0x0000FFFF)}  `,info: 'Power as interpreted by reacting ents' },
+
+                { title: `${fourKind('amb', (ent[15] >> 0) & 0x0000FFFF, (ent[15] >> 16) & 0x0000FFFF, (ent[16] >> 0) & 0x0000FFFF, (ent[16] >> 16) & 0x0000FFFF)}  `,info: 'Ambient increasing vals' },
+
+                { title: `${fourKind('rslt', (ent[17] >> 0) & 0x0000FFFF, (ent[17] >> 16) & 0x0000FFFF, (ent[18] >> 0) & 0x0000FFFF, (ent[18] >> 16) & 0x0000FFFF)}  `,info: 'Resulting entity from having max reached' },
+
+                { title: `${fourKind('typ', (ent[19] >> 0) & 0x000000FF, (ent[19] >> 8) & 0x000000FF, (ent[19] >> 16) & 0x000000FF, (ent[19] >> 24) & 0x000000FF)}  `,info: 'result type' },
+
+                
+                { title: `${fourKind('one', (ent[20] >> 0) & 0x000000FF, (ent[20] >> 8) & 0x000000FF, (ent[20] >> 16) & 0x000000FF, (ent[20] >> 24) & 0x000000FF)}  `,info: 'one shot yes or no' },
+                { title: `idk?:${ (ent[21] >> 16) & 0x0000FFFF }  drpVal:${ (ent[21] >> 0) & 0x0000FFFF }`,info: 'the idk,,, and the drop value of movement' },
+
+                // Add more rows up to 17
+            ];
+
+            const rowContainer = document.getElementById('row-container');
+            const infoBlurbContainer = document.getElementById('info-blurb-container');
+            rowContainer.innerHTML = ''; // Clear existing content
+
+            rows.forEach((row, index) => {
+                const rowItem = document.createElement('div');
+                rowItem.className = 'row-item-unique';
+                rowItem.innerHTML = row.title;
+
+                // Add hover event listener
+                rowItem.addEventListener('mouseover', () => {
+                    showInfoBlurb(index, rows);
+                });
+
+                rowContainer.appendChild(rowItem);
+            });
+        }
+
+        function showInfoBlurb(index, rows) {
+            const infoBlurbContainer = document.getElementById('info-blurb-container');
+            infoBlurbContainer.innerHTML = rows[index].info;
+        }
+ 
+
+    </script>
+
+
+    <script>
+        var EZ_EXAMPLE = null
+        var INTERVAL_ID = null
+
+        var CURRENT_TOOL = 1;
+
+        var CURRENT_ZOOM = 8;
+        var CURRENT_RMODE = 0;
+
+        var CURRENT_PAN_X = 0;
+        var CURRENT_PAN_Y = 0;
+
+        var FLOAT_X = 0;
+        var FLOAT_Y = 0;
+
+        var PAN_SPEED = 10;
+
+        var CURRENT_RT_COMMAND = 4;// stationary...
+        var RT_UP = false;// 0;
+        var RT_DOWN = false;
+        var RT_LEFT = false;
+        var RT_RIGHT = false;
+        var RT_X = false;
+
+
+
+        function handleSelectChange(value) {
+            loadExample( Number(value) )
+        }
+
+        function handleToolChange(value){
+            CURRENT_TOOL = value;
+            console.log(CURRENT_TOOL)
+        }
+        
+        function yourFunction(value) {
+            // Replace this with your actual function logic
+            alert('You selected: ' + value);
+        }
+
+         
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // const codeEditor = document.getElementById("codeEditor");
+            // const lineNumbers = document.getElementById("lineNumbers");
+            // const copyButton = document.getElementById("copyButton");
+        
+            // codeEditor.addEventListener("input", updateLineNumbers);
+            // codeEditor.addEventListener("scroll", () => {
+            //     lineNumbers.scrollTop = codeEditor.scrollTop;
+            // });
+        
+            // copyButton.addEventListener("click", copyToClipboard);
+        
+            // function updateLineNumbers() {
+            //     const lines = codeEditor.value.split('\n').length;
+            //     lineNumbers.innerHTML = Array(lines).fill(0).map((_, i) => `<div>${i + 1}</div>`).join('');
+            // }
+        
+            // function copyToClipboard() {
+            //     codeEditor.select();
+            //     document.execCommand("copy");
+            //     alert("Code copied to clipboard!");
+            // }
+        
+            // // Initialize line numbers
+            // updateLineNumbers();
+        });
+
+
+
+        
+        
+
+    </script>
+
+    <script>
+
+        const ALL_EXAMPLES = [
+
+        // 1 (ONE) - Standard Conway Game of Life
+            Ex1_Standard_CGOL,
+        // 2 (TWO) - Standard Conway Game of Life (QUADRANTS) 
+            Ex2_Quadrant_CGOL,
+        // 3 (THREE) - CGOL multi part and 
+            Ex3_MultiPart,
+        // 4 (FOUR) - Random Colour Game of Life (QUADRANTS + COMPONENTS + FADING core)
+            Ex4_MultiStorage,
+        // 5 (FIVE) - Read Back multi val
+            Ex5_GPUBufferRead,
+        // 6 Multi-val CGOL
+            Ex6_MultiVal_CGOL,
+        // 7 (SEVEN) - Mouse movement 
+            Ex7_MouseInput_CGOL,
+        // Example 8 u32
+            Ex8_RGBA_Bit_Packing,
+        // Example 9 U32 CA
+            Ex9_Stimmings2,
+        // Just go crazy w the random combos possible 
+            Ex10_RealWeirdIntegerCA,
+        // Just NN scratch pad
+            Ex11_NNRecorder,
+		//Trying GA 
+            Ex13_GA_Test,
+        // TODO ill put a sandbox there
+
+        ];
+        
+
+        function loadExample( exampleIndex ){
+
+            clearExample();
+            // Initial load the first one
+            ALL_EXAMPLES[exampleIndex]();
+
+            // Freeze up the other ones
+            for(let k = 0;k < ALL_EXAMPLES.length;k++){
+                let ejample = document.getElementById('exampleCode' + k);
+                if( ejample){
+                    ejample.classList.add('hidden')
+                }
+            }
+            let ekxcample = document.getElementById('exampleCode' + exampleIndex)
+            if(ekxcample){
+                ekxcample.classList.remove('hidden')
+            }
+
+            (async () => {
+                await EZ_EXAMPLE.init(); 
+                console.log('EZ_EXAMPLE has been initialized'); 
+                startExampleLoop();
+                //loadEntities();
+                getTheEditorImgs();
+            })();
+
+        }
+        function clearExample(){
+            //document.getElementById('extraTitle').innerHTML = '';
+            if( INTERVAL_ID ){
+                clearInterval( INTERVAL_ID )
+            }
+            if( EZ_EXAMPLE ){
+                EZ_EXAMPLE.killdeath()
+            }
+        } 
+        function startExampleLoop(){
+		    INTERVAL_ID = setInterval( () => {
+                if( !EZ_EXAMPLE.suicide ){
+                    EZ_EXAMPLE.run() 
+                } 
+            }, EZ_EXAMPLE.UPDATE_INTERVAL ); 
+        }
+
+
+        window.onload = ()=>{
+            //loadExample( 8 )//stimmings
+            clearExample();
+            loadExample(ALL_EXAMPLES.length-4);
+ 
+
+        };
+
+        document.addEventListener('visibilitychange', () => {
+
+            // TODO save the state, and pause the simulation, 
+            // and the ability to save it to express server or download it 
+            if (document.hidden) {
+                console.log('Window is out of focus.');
+                // You can add logic here to pause WebGPU processes or handle other resources
+            } else {
+                console.log('Window is back in focus.');
+                // Resume WebGPU processes or reinitialize resources as needed
+            }
+        });
+
+        document.addEventListener('keydown', function(event) {
+            // Get the currently focused element
+            //const focusedElement = document.activeElement;
+
+            // Print out the key that was pressed
+            // console.log(`Key pressed: ${event.key}`);
+            // console.log(''+event.key)
+
+            if( EZ_EXAMPLE ){
+                EZ_EXAMPLE.handleKeyInput( ''+event.key );
+
+                if( (''+event.key) === '1' ){
+                    CURRENT_TOOL = 1;   // Select whatevers in the field 
+                }
+                else if( (''+event.key) === '2' ){
+                    CURRENT_TOOL = 2;   // Deselec explicitly (remove dis TODO)
+                }
+                else if( (''+event.key) === '3' ){
+                    CURRENT_TOOL = 3;   // Place the last ent u clicked
+                } 
+
+                
+                else if( (''+event.key) === 'q' || (''+event.key) === 'Q' ){
+                    let adjSpeed = 1;
+                    if( CURRENT_ZOOM > 4 ){
+                        CURRENT_ZOOM = 1;
+                        adjSpeed *= 2;
+                    }
+                    else{
+                        CURRENT_ZOOM = CURRENT_ZOOM*2;
+                        adjSpeed /= CURRENT_ZOOM;
+
+                    }
+                    adjSpeed *= EZ_EXAMPLE.CELL_SIZE;
+                    console.log(window.innerWidth  ,',', adjSpeed )
+
+                    let xem = Math.floor( window.innerWidth  / adjSpeed );
+                    let yem = Math.floor( window.innerHeight / adjSpeed );
+                    //CURRENT_PAN_X -= Math.floor(xem*3.5);
+                    //CURRENT_PAN_Y += Math.floor(yem);
+                    // CURRENT_ZOOM = CURRENT_ZOOM * 2;
+
+                }
+                else if( (''+event.key) === 'e' || (''+event.key) === 'E' ){
+                    CURRENT_RMODE ++;
+                    CURRENT_RMODE = CURRENT_RMODE %2 ;
+                }
+
+                else if( (''+event.key) === 'w' || (''+event.key) === 'W' ){
+                    RT_UP = true;
+                }
+                else if( (''+event.key) === 's' || (''+event.key) === 'S' ){
+                    RT_DOWN = true;
+                }
+                else if( (''+event.key) === 'a' || (''+event.key) === 'A' ){
+                    RT_LEFT = true;
+                }
+                else if( (''+event.key) === 'd' || (''+event.key) === 'D' ){
+                    RT_RIGHT = true;
+                }
+                else if( (''+event.key) === 'x' || (''+event.key) === 'X' ){
+                    RT_X = true;
+                } 
+
+                // Detect arrow keys
+                if(event.key === 'ArrowUp'){
+                    EZ_EXAMPLE.ezweb.CELL_FLOAT_Y += PAN_SPEED;
+                    // CURRENT_PAN_Y += PAN_SPEED;
+                    // if( CURRENT_PAN_Y >= EZ_EXAMPLE.GRID_SIZE ){
+                    //     CURRENT_PAN_Y = CURRENT_PAN_Y - (EZ_EXAMPLE.GRID_SIZE);
+                    // }
+                }
+                else if(event.key === 'ArrowDown'){
+                    EZ_EXAMPLE.ezweb.CELL_FLOAT_Y -= PAN_SPEED;
+                    // CURRENT_PAN_Y -= PAN_SPEED;
+                    // if( CURRENT_PAN_Y < 0 ){
+                    //     CURRENT_PAN_Y = EZ_EXAMPLE.GRID_SIZE - Math.abs(CURRENT_PAN_Y);
+                    // }
+                }
+                else if(event.key === 'ArrowLeft'){
+                    EZ_EXAMPLE.ezweb.CELL_FLOAT_X -= PAN_SPEED;
+                    // CURRENT_PAN_X -= PAN_SPEED;
+                    // if( CURRENT_PAN_X < 0 ){
+                    //     CURRENT_PAN_X = EZ_EXAMPLE.GRID_SIZE - Math.abs(CURRENT_PAN_X);
+                    // }
+                    
+                }
+                else if(event.key === 'ArrowRight'){
+                    EZ_EXAMPLE.ezweb.CELL_FLOAT_X += PAN_SPEED;
+                    //CURRENT_PAN_X += PAN_SPEED;
+                    //if( CURRENT_PAN_X >= EZ_EXAMPLE.GRID_SIZE ){
+                    //    CURRENT_PAN_X = CURRENT_PAN_X - (EZ_EXAMPLE.GRID_SIZE);
+                    //}
+
+                    // CURRENT_PAN_X += PAN_SPEED;
+                    // if( CURRENT_PAN_X >= EZ_EXAMPLE.GRID_SIZE ){
+                    //     CURRENT_PAN_X = CURRENT_PAN_X - (EZ_EXAMPLE.GRID_SIZE);
+                    // }
+                    
+                } 
+ 
+
+            } 
+
+
+
+
+
+            // Perform different actions based on the focused element
+            // if (focusedElement.tagName === 'INPUT') {
+            //     console.log(`Input field with ID ${focusedElement.id} is focused`);
+            // } else if (focusedElement.tagName === 'BUTTON') {
+            //     console.log(`Button with ID ${focusedElement.id} is focused`);
+            // } else {
+            //     console.log('Other element is focused');
+            // }
+        });
+
+        
+        document.addEventListener('keyup', function(event) {
+            
+
+            if( (''+event.key) === 'w' || (''+event.key) === 'W' ){
+                RT_UP = false;
+                
+            }
+            else if( (''+event.key) === 's' || (''+event.key) === 'S' ){
+                // Handle down arrow key
+                RT_DOWN = false;
+            }
+            else if( (''+event.key) === 'a' || (''+event.key) === 'A' ){
+                // Handle left arrow key
+                RT_LEFT = false; 
+            }
+            else if( (''+event.key) === 'd' || (''+event.key) === 'D' ){
+                RT_RIGHT = false;
+            }
+            else if( (''+event.key) === 'x' || (''+event.key) === 'X' ){
+                RT_X = false;
+            }
+
+        });
+
+        // Get the element to update the scroll status
+        const scrollStatus = document.getElementById('scrollStatus');
+
+        // Handle the scroll event
+        window.addEventListener('scroll', () => {
+            // Update the scroll Y position
+            const scrollY = window.scrollY || window.pageYOffset;
+            //scrollStatus.textContent = `Scroll Y: ${scrollY}`;
+            console.log(scrollY)
+        });
+
+
+    </script>
+
+    <script>
+        console.log('redner the')
+    </script>
+
+    
+
+
+</body>
 </html>
