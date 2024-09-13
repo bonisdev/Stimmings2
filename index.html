@@ -372,11 +372,29 @@
 
     </style>
 	<link rel="shortcut icon" type="image/x-icon" href="src/largeking.ico">
+</head>
+<body>
     <script src="util/sprites_compiled64.js"></script>
+ 
+    <script src="src/EZWG.js"></script> 
 
-    <!-- <script src="src/PseudRand.js"></script> -->
-    <script src="src/EZWG.js"></script>
-    <script src="util/all_ents.js"></script>
+    <script>
+
+        // Utility 
+        function flattenArrayExceptFirstTwo(arr) {
+            return arr.reduce((acc, subArray) => {
+                if (subArray.length <= 3) {
+                    return acc; // Ignore sub-arrays with two or fewer elements
+                } else {
+                    return acc.concat(subArray.slice(3)); // Flatten everything except the first two elements
+                }
+            }, []);
+        }
+        
+        var ALL_IMGS = [];
+        var ALL_ENTS = [];// = EntEntries;
+        var ALL_FULLENTS = [];
+    </script>
     
     <script src="src/examples/Ex1_Standard_CGOL.js"></script>
     <script src="src/examples/Ex2_Quadrant_CGOL.js"></script>
@@ -390,8 +408,6 @@
     <script src="src/examples/Ex10_Weird_Integer.js"></script>
     <script src="src/examples/Ex11_NNRecorder.js"></script>
     <script src="src/examples/Ex13_GA_Test.js"></script>
-</head>
-<body>
     <div id="demoCanvasContainer"></div>
     <div id="hud">
         <div id="grid-container"></div>
@@ -419,15 +435,13 @@
 
     <script>
 
+        console.log('READING FROm.. EntEntries')
         var VIEWING_ENTS = false;
-        var ALL_ENTS = EntEntries;//[];
 
         console.log('beginning index2.html logic')
-        console.log(ALL_ENTS)
 
         var LAST_CLICKED_ENT = 0;
 
-        var ALL_IMGS = [];
 
         var ANIM_COUNTER = 0;
 
@@ -443,56 +457,13 @@
             }
         }
 
-        function flattenArrayExceptFirstTwo(arr) {
-            return arr.reduce((acc, subArray) => {
-                if (subArray.length <= 3) {
-                    return acc; // Ignore sub-arrays with two or fewer elements
-                } else {
-                    return acc.concat(subArray.slice(3)); // Flatten everything except the first two elements
-                }
-            }, []);
-        }
 
         // Render a single ent's values
         function renderNewEntForm( enter ){
-            console.log(ALL_ENTS[enter])
+            console.log(ALL_FULLENTS[enter])
             renderRows(enter);
         }
-
-        async function loadEntities() {
-            const response = await fetch('http://localhost:6350/send-all-ents')
-            .then(response => response.text())  // Use `.text()` to handle large string responses
-            .then(data => {
-                // console.log('Received large string of length:', data);
-                ( 0, eval )( data );
-
-                // THIS LOADS THE ENT ENTRIES []
-
-                ALL_ENTS = EntEntries;
-                console.log(ALL_ENTS)
-
-                //renderList();
-                //CycleThroughImgs();
-
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-        }
-
-        function CycleThroughImgs(){
-            let area = document.getElementById('all-ents-container')
-            area.innerHTML = '';
-            for(let v = 0;v < ALL_ENTS.length;v++){
-                let divr = document.createElement('div');
-                divr.innerHTML = ALL_ENTS[v][2]
-                area.appendChild(
-                    divr
-                )
-            }
-
-            console.log(ALL_ENTS)
-        }
+ 
 
 
         function toggleToEntView(){
@@ -615,29 +586,22 @@ var EntEntries = [
             const container = document.getElementById('grid-container');
             const IMAGE_SIZE = 32; // Image size
             const MAX_MAGNIFY_DISTANCE = 250; // Area of effect for translation
-            const TRANSLATION_DISTANCE = 10; // Distance to translate images away from the mouse
-            const DA_URL = 'http://localhost:6350/images';
-            const DA_URL_compedimages = 'http://localhost:6350/final_compiled/';
-            const PROXY_URL = 'http://localhost:3000/proxy?url='; // Base proxy URL
+            const TRANSLATION_DISTANCE = 10; // Distance to translate images away from the mouse 
             let images = [];
             let closestImageIndex = -1;
+            
 
             async function loadImages() {
-                try {
-                    //const response = await fetch(DA_URL);
-                    //const imagesList = await response.json(); 
-                    //if (!Array.isArray(imagesList)) {
-                    //    throw new Error('Expected an array of image filenames');
-                    //}
-                    ALL_IMGS = spriteb64s;
-                    //console.log(ALL_IMGS)
+
+                console.log('in.... loadImages()');
+
+                try { 
+                    console.log('ALL_IMGS.length:', ALL_IMGS.length)
                     
 
                     images = ALL_IMGS.map(src => {
-                        const img = new Image();
-                        // Construct the correct file path for the proxy request
-                        //const filePath = `file:///${DIRNAME_SERVER}/util/final_compiled/${src}`;//`file:///R:/util/final_compiled/${src}`;
-                        img.src = 'data:image/png;base64,' + src;//`${DA_URL_compedimages}${src}`;//`${PROXY_URL}${filePath}`;
+                        const img = new Image(); 
+                        img.src = 'data:image/png;base64,' + src;
                         const div = document.createElement('div');
                         div.className = 'image-box';
                         div.appendChild(img);
@@ -714,7 +678,7 @@ var EntEntries = [
                     const selectedImage = images[closestImageIndex];
                     console.log('Selected Image:', selectedImage.img.src);
                     
-                    document.getElementById('indLastClick').innerHTML = closestImageIndex;//(ALL_ENTS[index][4] & 0x0000FFFF);
+                    document.getElementById('indLastClick').innerHTML = closestImageIndex;
                 }
             });
 
@@ -737,10 +701,9 @@ var EntEntries = [
             const container = document.getElementById('list-container');
             container.innerHTML = ''; // Clear existing content
 
-            
-            //const DA_URL_compedimages = 'http://localhost:6350/final_compiled/';
+             
 
-            ALL_ENTS.forEach((item, index) => {
+            ALL_FULLENTS.forEach((item, index) => {
                 const listItem = document.createElement('div');
                 listItem.className = 'list-item';
 
@@ -755,9 +718,7 @@ var EntEntries = [
                 img.dataset.currentImage = 0; // Store the current image index
                 
                 
-                // Construct the correct file path for the proxy request
-                //const filePath = `file:///${DIRNAME_SERVER}/util/final_compiled/${src}`;//`file:///R:/util/final_compiled/${src}`;
-                //img.src = `${DA_URL_compedimages}${src}`;//`${PROXY_URL}${filePath}`;
+                // Construct the correct file path for the proxy request 
                 const div = document.createElement('div');
                 div.className = 'image-box';
                 div.appendChild(img);
@@ -788,7 +749,7 @@ var EntEntries = [
             CURRENT_TOOL = 3;
 
             document.getElementById('indLastClick').innerHTML = 
-                (ALL_ENTS[index][4] & 0x0000FFFF);
+                (ALL_FULLENTS[index][4] & 0x0000FFFF);
             
             renderNewEntForm(index)
             // Call the function with the index
@@ -865,7 +826,7 @@ var EntEntries = [
 
         function renderRows(enterind) {
 
-            let ent = ALL_ENTS[ enterind ];
+            let ent = ALL_FULLENTS[ enterind ];
             
             let pysic = getPhysicsProfile(ent[3])
 
@@ -951,6 +912,10 @@ var EntEntries = [
         var RT_LEFT = false;
         var RT_RIGHT = false;
         var RT_X = false;
+
+        console.log('another one')
+         
+        console.log(ALL_FULLENTS)
 
 
 
@@ -1040,6 +1005,7 @@ var EntEntries = [
         function loadExample( exampleIndex ){
 
             clearExample();
+
             // Initial load the first one
             ALL_EXAMPLES[exampleIndex]();
 
@@ -1059,7 +1025,10 @@ var EntEntries = [
                 await EZ_EXAMPLE.init(); 
                 console.log('EZ_EXAMPLE has been initialized'); 
                 startExampleLoop();
-                //loadEntities();
+
+                
+                console.log('beefore editor imgs is called')
+
                 getTheEditorImgs();
             })();
 
@@ -1081,14 +1050,6 @@ var EntEntries = [
             }, EZ_EXAMPLE.UPDATE_INTERVAL ); 
         }
 
-
-        window.onload = ()=>{
-            //loadExample( 8 )//stimmings
-            clearExample();
-            loadExample(ALL_EXAMPLES.length-4);
- 
-
-        };
 
         document.addEventListener('visibilitychange', () => {
 
@@ -1261,7 +1222,17 @@ var EntEntries = [
     </script>
 
     <script>
-        console.log('redner the')
+        console.log('redner the');
+        
+
+        window.onload = ()=>{
+            //loadExample( 8 )//stimmings
+            clearExample();
+            loadExample(ALL_EXAMPLES.length-4);
+            
+ 
+
+        };
     </script>
 
     
