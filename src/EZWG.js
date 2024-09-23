@@ -380,8 +380,9 @@ class EZWG {
         else{
             console.log('isogsodo')
         }
-
-        const adapter = await navigator.gpu.requestAdapter();
+        const adapter = await navigator.gpu.requestAdapter({
+            powerPreference: 'high-performance'
+        });
         if (!adapter) {
             this._createNoWebGPUCanvas()
             throw new Error("No appropriate GPUAdapter found.");
