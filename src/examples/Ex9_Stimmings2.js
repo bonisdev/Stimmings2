@@ -9,6 +9,7 @@ var Ex9_Stimmings2 = ( ) => {
 
 //-((INSERT QUICK THE ANIMATION NUMBERS FROM SCRUNCHER.JS))
 // ^^^ this also includes all the helpful constants for organziiang and sorting
+//-((QUICK INSTERT SFX THINGSTO LOAD))
 
 //((((PUT UR ENTIRE IMG BUFFER HERE))))
 
@@ -64,6 +65,41 @@ ALL_FULLENTS = FullEntEntries;
     //         EZWG.processImagePixels(document.getElementById('exmplSprite2'), 8, 8)
     //     );
     //let packedPixels = [].concat( allsprites );
+
+    // Sequenitally paintaikling load all the sfx 
+    console.log('here are the sfxs to learn');
+    console.log(ALL_SFX_KEYS);
+    // Function to convert base64 to ArrayBuffer
+    function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64.split(',')[1]);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+    
+
+    //var allSfxs = [];
+    for(let e = 0;e < ALL_SFX_KEYS.length;e++){
+        
+        // const audio = new Audio( ''+STAD[''+ALL_SFX_KEYS[e]][1] );
+        // audio.load(); // Ensures the audio is preloaded
+        // STAD[''+ALL_SFX_KEYS[e]][2] = audio;
+
+        // Convert the base64 string to an ArrayBuffer
+        const arrayBuffer = base64ToArrayBuffer( ''+STAD[''+ALL_SFX_KEYS[e]][1] );
+
+        // Synchronously decode the ArrayBuffer into an AudioBuffer
+        audioContext.decodeAudioData(arrayBuffer, function(buffer) {
+            STAD[''+ALL_SFX_KEYS[e]][2] = buffer;//audioFiles[i] = buffer; // Store the decoded AudioBuffer
+        }, function(error) {
+            console.error('Error decoding audio data:', error);
+        });
+
+
+    }
  
     var randomSeedToUse = 'ddfdstimmefrs2dd' + Date.now() + Math.random();
     randomSeedToUse = EZWG.SHA1.sha1( randomSeedToUse );
@@ -173,7 +209,10 @@ ALL_FULLENTS = FullEntEntries;
                     let songs = ALL_FULLENTS[en][2];
                     for(let i = 0;i < songs.length;i++){ 
                         if(sfxvals[1+i] > 0 && songs[i].length>0){
-                            addToConsole( 'sfx: '+ songs[i] + ' on ' + ALL_FULLENTS[en][0], { slowFade: true });
+                            //addToConsole( 'sfx: '+ songs[i] + ' on ' + ALL_FULLENTS[en][0], { slowFade: true });
+                            addToConsole( 'sfx size: '+ STAD[''+songs[i]][1].length, { slowFade: true });
+                            
+                            playSound( -1, STAD[''+songs[i]][2], 0 );
                         }
                     }
 
@@ -274,6 +313,7 @@ ALL_FULLENTS = FullEntEntries;
         // Intital set the default runner to this
         EZ_EXAMPLE = new EZWG( config );
     }
+    
 
 
     PRINT_OUT_NEXT_RUN = true;// TODO debgu fmreove for the detmeriensitic loading glitch

@@ -167,6 +167,8 @@ class EZWG {
         this.loaded = false;
         this.paused = false;
 
+        this.GPUName = '';
+
         this.READ_BUFFER_BUSY = false;
         this.READ_SFX_BUFFER_BUSY = false;
 
@@ -441,7 +443,10 @@ class EZWG {
         else{
             console.log('is good')
         } 
+        
+        console.log(adapter)
 
+        this.GPUName = '' + adapter.info.vendor + ' ' + adapter.info.architecture + "| max:" + adapter.limits.maxBufferSize;
 
  
         this.canvas = document.createElement('canvas'); 

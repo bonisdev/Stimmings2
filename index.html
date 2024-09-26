@@ -48,9 +48,9 @@
             position: absolute;
             pointer-events: none;
             left: 0;
-            bottom: calc(60px);
+            bottom: calc(120px);
             /*width: 100%;*/
-            padding: 10px;
+            padding: 0px;
             /*height: 100%;*/
             /*pointer-events: none;  Allows clicks to pass through to the canvas */
             /*display: flex;*/
@@ -70,6 +70,7 @@
             opacity: 1;
             transition: opacity 1s ease-in-out;
             color: white;
+            padding: 10px;
           }
           
           .fade {
@@ -337,6 +338,39 @@
         .highlight {
             outline: 2px solid red;
         }
+
+
+
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent dark background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000; /* Ensure it is on top of other content */
+          }
+      
+          .overlay img {
+            width: 150px; /* Size of the GIF */
+            height: auto;
+          }
+      
+          .overlay p {
+            margin-top: 20px;
+            color: white;
+            font-size: 18px;
+            font-family: Arial, sans-serif;
+          }
+      
+          .overlay:hover {
+            cursor: pointer;
+          }
     </style>
 
     <style>
@@ -474,6 +508,15 @@
                 }
             }, []);
         }
+
+        function enableSFX(){
+            // Remove the overlay from the DOM
+            const overlay = document.querySelector('.overlay');
+            overlay.parentNode.removeChild(overlay);
+
+            // Your code to enable SFX goes here
+            console.log('SFX enabled');
+        }
         
         var ALL_IMGS = [];
         var ALL_ENTS = [];// = EntEntries;  // <- after trimmed to only the important bytes
@@ -484,6 +527,11 @@
     </script>
      
     <script src="src/examples/Ex9_Stimmings2_compiled.js"></script> 
+
+    <div id="dadudhud" class="overlay" onclick="enableSFX()">
+        <img src="src/mouse-click-icon-29.gif" alt="GIF">
+        <p>Click anywhere to enable SFX</p>
+      </div>
     
     <div id="secretConsole"> 
     </div>
@@ -1133,8 +1181,26 @@ var EntEntries = [
 
         let canPlaySound = false; // Global variable
 
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
         // Create an AudioContext
         //let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(index, audioem, pitchShift = 0) {
+            if (audioem) {
+                const source = audioContext.createBufferSource();
+                source.buffer = audioem;
+        
+                // Apply pitch shift if needed
+                source.detune.value = pitchShift * 100;
+        
+                // Connect to the audio context and play
+                source.connect(audioContext.destination);
+                source.start(0); // Play immediately
+            } else {
+                console.error('Audio file not loaded yet:', index);
+            }
+        }
 
         // Function to unlock the AudioContext after a user gesture
         function unlockAudioContext() {
@@ -1251,7 +1317,6 @@ var EntEntries = [
 
         document.getElementById('checkbox1').addEventListener('change', function() {
             unlockAudioContext();
-            htmlSound(0, 0);
             if (this.checked) {
             }
             else { 
@@ -1320,6 +1385,7 @@ var EntEntries = [
             (async () => {
                 await EZ_EXAMPLE.init(); 
                 console.log('EZ_EXAMPLE has been initialized'); 
+
                 
                 /*
                 if( WANT_TO_LOAD_NEW){
@@ -1347,6 +1413,8 @@ var EntEntries = [
                 console.log('beefore editor imgs is called')
 
                 getTheEditorImgs();
+                
+                addToConsole('using GPU: ' + EZ_EXAMPLE.GPUName, {noRemove:true});
             })();
 
         }
