@@ -42,6 +42,55 @@
             background-color: #1d3015d3;
             border: none;
         }
+         
+        
+        #secretConsole {
+            position: absolute;
+            pointer-events: none;
+            left: 0;
+            bottom: calc(60px);
+            /*width: 100%;*/
+            padding: 10px;
+            /*height: 100%;*/
+            /*pointer-events: none;  Allows clicks to pass through to the canvas */
+            /*display: flex;*/
+            /*justify-content: center;
+            align-items: center;*/
+            color: white;
+            font-size: 12px;
+            background-color: #7518b325;
+            border: none;
+            z-index: 57;
+        }
+
+        #secretConsole a {
+            pointer-events: auto;
+        }
+        .message {
+            opacity: 1;
+            transition: opacity 1s ease-in-out;
+            color: white;
+          }
+          
+          .fade {
+            opacity: 0;
+          }
+          
+          .fast-fade {
+            transition-duration: 1s;
+          }
+          
+          .slow-fade {
+            transition-duration: 8s;
+          }
+          
+          .color-red {
+            background-color: red;
+          }
+          
+          .color-green {
+            background-color: green;
+          }
 
         #openCloserThing{
             z-index: 56;
@@ -367,13 +416,48 @@
             padding: 20px;
             overflow-y: auto;
         }
+
+        #scenarioloadser {
+            position: relative;
+            border: #ffffff 1px solid;
+            
+        }
+
+        #putseedhere{
+            color: white;
+            background-color: darkgreen;
+        }
         
-        
+        #drop-area {
+            width: 300px;
+            height: 56px;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 18px;
+            color: #666;
+            background-color: #f9f9f9;
+            transition: background-color 0.2s ease;
+        }
+
+        #drop-area.hover {
+            background-color: #e1f5fe;
+            border-color: #2196F3;
+        }
+
+        #drop-area.dragging {
+            background-color: #bbdefb;
+            color: #333;
+        }
 
     </style>
 	<link rel="shortcut icon" type="image/x-icon" href="src/largeking.ico">
 </head>
 <body>
+    <!-- <script src="src/stimmings_sfx.js"></script>  -->
     <script src="util/sprites_compiled64.js"></script>
  
     <script src="src/EZWG.js"></script> 
@@ -383,47 +467,80 @@
         // Utility 
         function flattenArrayExceptFirstTwo(arr) {
             return arr.reduce((acc, subArray) => {
-                if (subArray.length <= 3) {
+                if (subArray.length <= 4) {
                     return acc; // Ignore sub-arrays with two or fewer elements
                 } else {
-                    return acc.concat(subArray.slice(3)); // Flatten everything except the first two elements
+                    return acc.concat(subArray.slice(4)); // Flatten everything except the first two elements
                 }
             }, []);
         }
         
         var ALL_IMGS = [];
-        var ALL_ENTS = [];// = EntEntries;
-        var ALL_FULLENTS = [];
+        var ALL_ENTS = [];// = EntEntries;  // <- after trimmed to only the important bytes
+        var ALL_FULLENTS = [];  //<- befotr tirmmed
+
+        var STIMMINGS_APP_VERSION = "v1v";
+
     </script>
+     
+    <script src="src/examples/Ex9_Stimmings2_compiled.js"></script> 
     
-    <script src="src/examples/Ex1_Standard_CGOL.js"></script>
-    <script src="src/examples/Ex2_Quadrant_CGOL.js"></script>
-    <script src="src/examples/Ex3_MultiPart.js"></script>
-    <script src="src/examples/Ex4_MultiStorage.js"></script>
-    <script src="src/examples/Ex5_GPUBufferRead.js"></script>
-    <script src="src/examples/Ex6_MultiVal_CGOL.js"></script>
-    <script src="src/examples/Ex7_MouseInput_CGOL.js"></script>
-    <script src="src/examples/Ex8_RGBA_Bit_Packing.js"></script>
-    <script src="src/examples/Ex9_Stimmings2_compiled.js"></script>
-    <script src="src/examples/Ex10_Weird_Integer.js"></script>
-    <script src="src/examples/Ex11_NNRecorder.js"></script>
-    <script src="src/examples/Ex13_GA_Test.js"></script>
+    <div id="secretConsole"> 
+    </div>
     <div id="demoCanvasContainer"></div>
     <div id="hud">
         <div id="grid-container"></div>
 
         <div id="entEditorPlace"> </div>
-<!-- 
-        <button onclick="saveEnts()" value="save ents">save ents</button> -->
+        <!-- 
+            <button onclick="saveEnts()" value="save ents">save ents</button> -->
 
         <!-- <button onclick="toggleToEntView()"> toggle </button> -->
 
         <div class="hidden" id="all-ents-container"></div>
-        <div id="list-container"></div>
+        <div id="list-container"></div> 
+        
 
         <div id="info-container">
             <div id="row-container"></div>
-            <div id="info-blurb-container">Hover over a row to see more information.</div>
+            <div >
+                <div id="info-blurb-container">Hover over a row to see more information.</div>
+                <div id="scenarioloadser">
+                    <p>Examples (<a href="https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API#browser_compatibility">Must have chrome</a>):</p>
+                    <div class="dropdown">
+                        <select id="dropdown" onchange="handleSelectChange(this.value)">
+                            <option value="0">Perlin Forest</option>
+                            <option value="1">Paragraph Maze</option>
+                             
+                            <!-- <option value="12">Free Verticies</option> -->
+                        </select>
+                    </div>
+                    <p> The current seed is [<span id="putseedhere"></span>]</p>
+                    <button onclick="savetimeer()">save entire</button>
+                    <br>
+                    <div id="drop-area">Drag and drop a txt file here</div>
+                </div>
+
+                
+                <div>
+                    
+                    <div>
+                        <input type="checkbox" checked id="checkbox1">
+                        <label for="checkbox1">sfx enabled</label>
+                    </div>
+
+                    <div>
+                        <input type="checkbox" id="checkbox2">
+                        <label for="checkbox2">entity team=1</label>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="checkbox3">
+                        <label for="checkbox3">paused</label>
+                    </div>
+                </div>
+            </div>
+            
+ 
             <h3 id="indLastClick"></h3>
         </div>
          
@@ -432,6 +549,96 @@
         <h2>edit</h2>
     </div>
 
+    <script>
+        var ENTIRE_LAST_LOADED = null;
+        
+        var WANT_TO_LOAD_NEW  = false;
+        var WANT_TO_LOAD_INITIAL_BREAKOUT = false;
+
+
+
+        var INCOMING_STEP = -1;
+        var LAST_SEED_TOLAOD = '';
+
+        // ADD MORE LOADING FEATURES HERE
+
+        var INCOMING_CHUNKS = -1;
+        var INCOMING_CHNK_SIZE = -1;
+
+        var PRINT_OUT_NEXT_RUN = true;
+
+        const dropArea = document.getElementById('drop-area');
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false)
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Highlight the drop area when file is dragged over
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.add('hover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, () => {
+                dropArea.classList.remove('hover');
+            }, false);
+        });
+
+        // Handle dropped files
+        dropArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const file = e.dataTransfer.files[0];
+
+            if (file && file.name.endsWith('.txt')) {
+                // Update background with filename
+                dropArea.textContent = `Load ${file.name}?`;
+                dropArea.classList.add('dragging');
+
+                // Trigger the upload function
+                uploadUint32Array(file, function(arr) {
+
+                    let kk = ((''+file.name).split('.'))[0].split('_'); 
+                    console.log('Uint32Arrayl ength:', arr.length); // Array is now ready
+                    ENTIRE_LAST_LOADED = arr;
+                    WANT_TO_LOAD_NEW  = true;
+                    WANT_TO_LOAD_INITIAL_BREAKOUT = true;
+                    console.log("Loading... " + file.name)
+                    console.log('Loading file, with version:', kk[0]);
+                    INCOMING_CHUNKS = Number( kk[1].split('x')[0] );
+                    INCOMING_CHNK_SIZE = Number( kk[1].split('x')[1] );
+                    INCOMING_STEP = Number( kk[2] );// TODO wtf is this about: + 1;
+                    LAST_SEED_TOLAOD = '' + kk[3];
+                    console.log('LAST_SEED_TOLAOD', LAST_SEED_TOLAOD)
+                    dropArea.classList.remove('dragging');
+                    dropArea.textContent = 'Drag and drop a file here';
+                });
+            } else {
+                dropArea.textContent = 'Invalid file. Please drop a .txt file.';
+            }
+        }
+
+        function uploadUint32Array(file, callback) {
+            const reader = new FileReader();
+
+            reader.onload = function(event) {
+                const text = event.target.result;
+                const numArray = text.split(' ').map(Number);
+                const uint32Array = new Uint32Array(numArray);
+
+                callback(uint32Array);
+            };
+
+            reader.readAsText(file);
+        }
+    </script>
 
     <script>
 
@@ -674,9 +881,10 @@ var EntEntries = [
             });
 
             container.addEventListener('click', () => {
+                unlockAudioContext();
                 if (closestImageIndex !== -1) {
                     const selectedImage = images[closestImageIndex];
-                    console.log('Selected Image:', selectedImage.img.src);
+                    //console.log('Selected Image:', selectedImage.img.src);
                     
                     document.getElementById('indLastClick').innerHTML = closestImageIndex;
                 }
@@ -709,7 +917,7 @@ var EntEntries = [
 
                 
                 const img = new Image();
-                let vall = (item[4] & 0x0000FFFF); 
+                let vall = (item[5] & 0x0000FFFF); 
                 //const img = document.createElement('img');
                 vall = 'data:image/png;base64,' + spriteb64s[vall];
                 //console.log(ALL_IMGS)
@@ -749,7 +957,7 @@ var EntEntries = [
             CURRENT_TOOL = 3;
 
             document.getElementById('indLastClick').innerHTML = 
-                (ALL_FULLENTS[index][4] & 0x0000FFFF);
+                (ALL_FULLENTS[index][5] & 0x0000FFFF);
             
             renderNewEntForm(index)
             // Call the function with the index
@@ -797,7 +1005,7 @@ var EntEntries = [
             let dakeys = Object.keys(PHYS);
             let end = '';
             for(let n = 0;n < dakeys.length;n++){
-                console.log(PHYS[dakeys[n]]);
+                //console.log(PHYS[dakeys[n]]);
                 if( ( PHYS[dakeys[n]] & u32 ) > 0){
                     
                     let col = getFarOut( PHYS[dakeys[n]] );
@@ -828,36 +1036,36 @@ var EntEntries = [
 
             let ent = ALL_FULLENTS[ enterind ];
             
-            let pysic = getPhysicsProfile(ent[3])
+            let pysic = getPhysicsProfile(ent[4])
 
             const rows = [
-                { title: `( ${enterind} )  ${ent[0]}`, info: `Desc: ${ent[1]} <br> Sfx: ${ent[2]}` },
+                { title: `( ${enterind} )  ${ent[0]}`, info: `Desc: ${ent[1]} <br> Sfx: ${ent[2]} <br> Anim: ${ent[3]}` },
                 { title: ''+pysic, info: 'Which phsyics flags are present <br>' + pysic },
-                { title: `anim: ind:[<span style="color: rgb(250, 190, 10);background-color: rgb(23, 23, 23);">${ent[4]&0x0000FFFF}</span>]  size_${(ent[4] >> 24)&0x000000FF}  |  frq.${(ent[4] >> 16)&0x000000FF}`, info: 'sprite meta' },
-                { title: `desire:${getDesireType(ent[5]&0x000000FF)}  speed:${ (ent[5] >> 8) & 0x000000FF}`, info: 'Desire + Move Freq' },
+                { title: `anim: ind:[<span style="color: rgb(250, 190, 10);background-color: rgb(23, 23, 23);">${ent[5]&0x0000FFFF}</span>]  size_${(ent[5] >> 24)&0x000000FF}  |  frq.${(ent[5] >> 16)&0x000000FF}`, info: 'sprite meta' },
+                { title: `desire:${getDesireType(ent[6]&0x000000FF)}  speed:${ (ent[6] >> 8) & 0x000000FF}`, info: 'Desire + Move Freq' },
 
                 
-                { title: `dmg prof.:${(ent[6] >> 16)&0x0000FFFF}  scnt prof.:${ (ent[6]) & 0x0000FFFF}`, info: 'Scent Profile 0x0000FFFF<br>Dmg Profile 0xFFFF0000' },
+                { title: `dmg prof.:${(ent[7] >> 16)&0x0000FFFF}  scnt prof.:${ (ent[7]) & 0x0000FFFF}`, info: 'Scent Profile 0x0000FFFF<br>Dmg Profile 0xFFFF0000' },
                 
-                { title: `goodness from: ${getPhysicsProfile(ent[7])}  `, info: 'Goodness from' },
-                { title: `badness from: ${getPhysicsProfile(ent[8])}  `, info: 'Badness from' },
-                { title: `trans1 from: ${getPhysicsProfile(ent[9])}  `, info: 'Trans1 from' },
-                { title: `trans2 from: ${getPhysicsProfile(ent[10])}  `,info: 'Trans2 from' },
-
-                
-                { title: `${fourKind('max', (ent[11] >> 0) & 0x0000FFFF, (ent[11] >> 16) & 0x0000FFFF, (ent[12] >> 0) & 0x0000FFFF, (ent[12] >> 16) & 0x0000FFFF)}  `,info: 'Max values before result is triggered' },
-
-                { title: `${fourKind('pwr', (ent[13] >> 0) & 0x0000FFFF, (ent[13] >> 16) & 0x0000FFFF, (ent[14] >> 0) & 0x0000FFFF, (ent[14] >> 16) & 0x0000FFFF)}  `,info: 'Power as interpreted by reacting ents' },
-
-                { title: `${fourKind('amb', (ent[15] >> 0) & 0x0000FFFF, (ent[15] >> 16) & 0x0000FFFF, (ent[16] >> 0) & 0x0000FFFF, (ent[16] >> 16) & 0x0000FFFF)}  `,info: 'Ambient increasing vals' },
-
-                { title: `${fourKind('rslt', (ent[17] >> 0) & 0x0000FFFF, (ent[17] >> 16) & 0x0000FFFF, (ent[18] >> 0) & 0x0000FFFF, (ent[18] >> 16) & 0x0000FFFF)}  `,info: 'Resulting entity from having max reached' },
-
-                { title: `${fourKind('typ', (ent[19] >> 0) & 0x000000FF, (ent[19] >> 8) & 0x000000FF, (ent[19] >> 16) & 0x000000FF, (ent[19] >> 24) & 0x000000FF)}  `,info: 'result type' },
+                { title: `goodness from: ${getPhysicsProfile(ent[8])}  `, info: 'Goodness from' },
+                { title: `badness from: ${getPhysicsProfile(ent[9])}  `, info: 'Badness from' },
+                { title: `trans1 from: ${getPhysicsProfile(ent[10])}  `, info: 'Trans1 from' },
+                { title: `trans2 from: ${getPhysicsProfile(ent[11])}  `,info: 'Trans2 from' },
 
                 
-                { title: `${fourKind('one', (ent[20] >> 0) & 0x000000FF, (ent[20] >> 8) & 0x000000FF, (ent[20] >> 16) & 0x000000FF, (ent[20] >> 24) & 0x000000FF)}  `,info: 'one shot yes or no' },
-                { title: `idk?:${ (ent[21] >> 16) & 0x0000FFFF }  drpVal:${ (ent[21] >> 0) & 0x0000FFFF }`,info: 'the idk,,, and the drop value of movement' },
+                { title: `${fourKind('max', (ent[12] >> 0) & 0x0000FFFF, (ent[12] >> 16) & 0x0000FFFF, (ent[13] >> 0) & 0x0000FFFF, (ent[13] >> 16) & 0x0000FFFF)}  `,info: 'Max values before result is triggered' },
+
+                { title: `${fourKind('pwr', (ent[14] >> 0) & 0x0000FFFF, (ent[14] >> 16) & 0x0000FFFF, (ent[15] >> 0) & 0x0000FFFF, (ent[15] >> 16) & 0x0000FFFF)}  `,info: 'Power as interpreted by reacting ents' },
+
+                { title: `${fourKind('amb', (ent[16] >> 0) & 0x0000FFFF, (ent[16] >> 16) & 0x0000FFFF, (ent[17] >> 0) & 0x0000FFFF, (ent[17] >> 16) & 0x0000FFFF)}  `,info: 'Ambient increasing vals' },
+
+                { title: `${fourKind('rslt', (ent[18] >> 0) & 0x0000FFFF, (ent[18] >> 16) & 0x0000FFFF, (ent[19] >> 0) & 0x0000FFFF, (ent[19] >> 16) & 0x0000FFFF)}  `,info: 'Resulting entity from having max reached' },
+
+                { title: `${fourKind('typ', (ent[20] >> 0) & 0x000000FF, (ent[20] >> 8) & 0x000000FF, (ent[20] >> 16) & 0x000000FF, (ent[20] >> 24) & 0x000000FF)}  `,info: 'result type' },
+
+                
+                { title: `${fourKind('one', (ent[21] >> 0) & 0x000000FF, (ent[21] >> 8) & 0x000000FF, (ent[21] >> 16) & 0x000000FF, (ent[21] >> 24) & 0x000000FF)}  `,info: 'one shot yes or no' },
+                { title: `idk?:${ (ent[22] >> 16) & 0x0000FFFF }  drpVal:${ (ent[22] >> 0) & 0x0000FFFF }`,info: 'the idk,,, and the drop value of movement' },
 
                 // Add more rows up to 17
             ];
@@ -890,8 +1098,11 @@ var EntEntries = [
 
 
     <script>
-        var EZ_EXAMPLE = null
+        var EZ_EXAMPLE = null;
+        // ^ Used by the stimmings_sfx file 
         var INTERVAL_ID = null
+
+        var consoleEl = document.getElementById("secretConsole")
 
         var CURRENT_TOOL = 1;
 
@@ -915,11 +1126,87 @@ var EntEntries = [
 
         console.log('another one')
          
-        console.log(ALL_FULLENTS)
+        console.log(ALL_FULLENTS);
+
+         
 
 
+        let canPlaySound = false; // Global variable
+
+        // Create an AudioContext
+        //let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Function to unlock the AudioContext after a user gesture
+        function unlockAudioContext() {
+            canPlaySound = true; // Update global variable
+            // if (audioContext.state === 'suspended') {
+            //     audioContext.resume().then(() => {
+            //         console.log('AudioContext resumed');
+            //     }).catch((error) => {
+            //         console.error('Failed to resume AudioContext:', error);
+            //     });
+            // }
+        }
+
+
+        var currentlogs = [];
+
+
+
+        function savetimeer(){
+            if( EZ_EXAMPLE ) {
+                if(EZ_EXAMPLE.CURRENTLY_SAVING === false && EZ_EXAMPLE.WANTING_TO_SAVE === false ){
+ 
+                    EZ_EXAMPLE.WANTING_TO_SAVE = true;
+                }
+
+            }
+        }
+
+        function addToConsole(content, modifier = {}) {
+            const parent = consoleEl;//document.getElementById("parent");
+            const newDiv = document.createElement("div");
+            
+            // Set the default class and content for the new div
+            newDiv.classList.add("message");
+            newDiv.innerHTML = content;
+            
+            // Apply modifier logic
+            if (modifier.color === "red") {
+                newDiv.classList.add("color-red");
+            } else if (modifier.color === "green") {
+                newDiv.classList.add("color-green");
+            }
+            
+            if (modifier.slowFade) {
+                newDiv.classList.add("slow-fade");
+            } else {
+                newDiv.classList.add("fast-fade");
+            }
+            
+            // Append the new div to the parent component
+            parent.appendChild(newDiv);
+            
+            // Handle fading and removal based on the modifier
+            if (!modifier.noRemove) {
+                setTimeout(() => {
+                newDiv.classList.add("fade"); // Trigger fade effect
+            
+                setTimeout(() => {
+                    parent.removeChild(newDiv); // Remove the element after fade completes
+                }, modifier.slowFade ? 8000 : 1000); // Delay based on fade speed
+                }, 1000); // Delay for 10 seconds before starting fade
+            }
+        }
+        // function addToConsole(sthsing){
+        //     let newEntry = document.createElement('p');
+        //     newEntry.innerHTML = '' + sthsing;
+        //     currentlogs.push(newEntry)
+        //     consoleEl.appendChild( newEntry );
+        // }
 
         function handleSelectChange(value) {
+            clearExample();
             loadExample( Number(value) )
         }
 
@@ -962,6 +1249,39 @@ var EntEntries = [
             // updateLineNumbers();
         });
 
+        document.getElementById('checkbox1').addEventListener('change', function() {
+            unlockAudioContext();
+            htmlSound(0, 0);
+            if (this.checked) {
+            }
+            else { 
+            }
+            if( EZ_EXAMPLE ){
+              EZ_EXAMPLE.soundToggled = this.checked ? true : false;
+            }
+          });
+          
+          document.getElementById('checkbox2').addEventListener('change', function() {
+            unlockAudioContext();
+            if (this.checked) { 
+            }
+            else { 
+            }
+            if( EZ_EXAMPLE ){
+              EZ_EXAMPLE.ezweb.playerOwnedToggle = this.checked ? true : false;
+            }
+          });
+          document.getElementById('checkbox3').addEventListener('change', function() {
+            unlockAudioContext();
+            if (this.checked) { 
+            }
+            else { 
+            }
+            if( EZ_EXAMPLE ){
+              EZ_EXAMPLE.paused = this.checked ? true : false;
+            }
+          });
+          
 
 
         
@@ -973,38 +1293,14 @@ var EntEntries = [
 
         const ALL_EXAMPLES = [
 
-        // 1 (ONE) - Standard Conway Game of Life
-            Ex1_Standard_CGOL,
-        // 2 (TWO) - Standard Conway Game of Life (QUADRANTS) 
-            Ex2_Quadrant_CGOL,
-        // 3 (THREE) - CGOL multi part and 
-            Ex3_MultiPart,
-        // 4 (FOUR) - Random Colour Game of Life (QUADRANTS + COMPONENTS + FADING core)
-            Ex4_MultiStorage,
-        // 5 (FIVE) - Read Back multi val
-            Ex5_GPUBufferRead,
-        // 6 Multi-val CGOL
-            Ex6_MultiVal_CGOL,
-        // 7 (SEVEN) - Mouse movement 
-            Ex7_MouseInput_CGOL,
-        // Example 8 u32
-            Ex8_RGBA_Bit_Packing,
-        // Example 9 U32 CA
             Ex9_Stimmings2,
-        // Just go crazy w the random combos possible 
-            Ex10_RealWeirdIntegerCA,
-        // Just NN scratch pad
-            Ex11_NNRecorder,
-		//Trying GA 
-            Ex13_GA_Test,
-        // TODO ill put a sandbox there
-
+            Ex9_Stimmings2,
         ];
         
 
         function loadExample( exampleIndex ){
 
-            clearExample();
+            //clearExample();
 
             // Initial load the first one
             ALL_EXAMPLES[exampleIndex]();
@@ -1024,7 +1320,28 @@ var EntEntries = [
             (async () => {
                 await EZ_EXAMPLE.init(); 
                 console.log('EZ_EXAMPLE has been initialized'); 
+                
+                /*
+                if( WANT_TO_LOAD_NEW){
+                    console.log('was step bveflreo: ', EZ_EXAMPLE.step, )
+                    // EZ_EXAMPLE.step = INCOMING_STEP;
+                    console.log('was step aftero: ', EZ_EXAMPLE.step, )
+                    console.log('INCOMING_STEP', INCOMING_STEP) 
+                    console.log('LAST_SEED_TOLAOD', LAST_SEED_TOLAOD) 
+                    // EZWG.SHA1.seed( LAST_SEED_TOLAOD )
+
+                    // INCOMING_STEP = -1;
+
+                    
+                    //EZ_EXAMPLE.liveInput[11] = 4;
+                    LAST_CLICKED_ENT = -1;
+                }  */
+                
                 startExampleLoop();
+                
+                
+                // WANT_TO_LOAD_NEW = false;
+                // INCOMING_STEP = -1;
 
                 
                 console.log('beefore editor imgs is called')
@@ -1042,11 +1359,38 @@ var EntEntries = [
                 EZ_EXAMPLE.killdeath()
             }
         } 
+
+        // function runTimeout() {
+        //     INTERVAL_ID = setTimeout(() => {
+        //         if (!EZ_EXAMPLE.suicide && !WANT_TO_LOAD_NEW) {
+        //             EZ_EXAMPLE.run();
+        //         } else {
+        //             if (WANT_TO_LOAD_NEW) {
+        //                 //console.log('want to load nu: ', ENTIRE_LAST_LOADED.length);
+        //                 clearExample();
+        //                 loadExample(0);
+        //             }
+        //         } 
+        //         // Recursively call the timeout with the updated interval
+        //         runTimeout();
+        //     }, EZ_EXAMPLE.UPDATE_INTERVAL);
+        // }
+
         function startExampleLoop(){
+            //runTimeout();
 		    INTERVAL_ID = setInterval( () => {
-                if( !EZ_EXAMPLE.suicide ){
-                    EZ_EXAMPLE.run() 
+
+                if( !EZ_EXAMPLE.suicide && !WANT_TO_LOAD_INITIAL_BREAKOUT){
+                    if( !EZ_EXAMPLE.paused ) { EZ_EXAMPLE.run(); }
+
                 } 
+                else{
+                    if(WANT_TO_LOAD_INITIAL_BREAKOUT){
+                        WANT_TO_LOAD_INITIAL_BREAKOUT = false;
+                        clearExample();
+                        loadExample(0);
+                    }
+                }
             }, EZ_EXAMPLE.UPDATE_INTERVAL ); 
         }
 
@@ -1073,6 +1417,7 @@ var EntEntries = [
             // console.log(''+event.key)
 
             if( EZ_EXAMPLE ){
+                unlockAudioContext();
                 EZ_EXAMPLE.handleKeyInput( ''+event.key );
 
                 if( (''+event.key) === '1' ){
@@ -1226,9 +1571,8 @@ var EntEntries = [
         
 
         window.onload = ()=>{
-            //loadExample( 8 )//stimmings
             clearExample();
-            loadExample(ALL_EXAMPLES.length-4);
+            loadExample(0);
             
  
 

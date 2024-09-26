@@ -1,6 +1,9 @@
 // webgpu-ca.js
 
-const global = typeof window !== 'undefined' ? window : null;
+//const global = typeof window !== 'undefined' ? window : null;
+// Correctly detect the global object in both environments (Node.js and browser)
+const global = typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : null);
+
 const ssr = global === null;
 
 // Save a couple of long function names that are used frequently.
@@ -17,7 +20,7 @@ class EZWG {
     static ALL_RANDS = 1
     static ALL_BINS = 2
 
-    constructor( config = {}) {
+    constructor( config = {}, specialLiveInputOverride ={}) {
  
 
         // Define default values
@@ -36,6 +39,7 @@ class EZWG {
             FRAGMENT_WGSL: '',
             BY_PIXEL: false,    // if this is true run the fragment shader from the perspective of each pixel instead of WidthxHeightxTriangles
             READ_BACK_FUNC: ( currentStep, entireBuffer ) => {},
+            SFX_HANDLER_FUNC: ( currentStep, entireBuffer, lastBuffer ) => {},
             CELL_SIZE: 8,
             //  experimental right now 
                 FRAG_PIXEL_MODE: false, // if true, it's a fragment shader, and every pixel gets the fragment code run on it
@@ -46,7 +50,7 @@ class EZWG {
         };
 
         // Overrider 
- 
+        this.slio = specialLiveInputOverride;
         // Merge defaults with the provided config
         this.config = { ...defaults, ...config };
  
@@ -66,6 +70,7 @@ class EZWG {
         this.COMPUTE_WGSL = this._validateString(this.config.COMPUTE_WGSL, 'COMPUTE_WGSL');
         this.FRAGMENT_WGSL = this._validateString(this.config.FRAGMENT_WGSL, 'FRAGMENT_WGSL');
         this.READ_BACK_FUNC = this.config.READ_BACK_FUNC;
+        this.SFX_HANDLER_FUNC = this.config.SFX_HANDLER_FUNC;
         this.CELL_SIZE = this._validatePositiveInteger(this.config.CELL_SIZE, 'CELL_SIZE');
         
         this.FRAG_PIXEL_MODE =  this.config.FRAG_PIXEL_MODE;
@@ -155,12 +160,22 @@ class EZWG {
         this.TOTAL_CELLS = this.GRID_SIZE * this.GRID_SIZE 
         this.UPDATE_INTERVAL = 45
 
-        this.USER_INPUT_BUFFER_SIZE = 8*8 
+        this.USER_INPUT_BUFFER_SIZE = 8*8;
 
+        this.SFX_BUFFER_SIZE = 128*128;
+        this.SFX_BUFFER_SIZE_LENGTH = 128;
         this.loaded = false;
+        this.paused = false;
+
         this.READ_BUFFER_BUSY = false;
+        this.READ_SFX_BUFFER_BUSY = false;
+
+        this.WANTING_TO_SAVE = false;
+        this.CURRENTLY_SAVING = false;
 
         this.READ_BACK_STEP = 0; // increases every time a SUCCESSFUL read back is performed
+
+        this.soundToggled = true;
 
         this.step = 0;
         this.suicide = false;
@@ -182,6 +197,7 @@ class EZWG {
         this.vertices = []              // will end up being the square you draw over and over again (TODO look and see if drawing 2 triangle everytime for each thing
 
         this.cellStateStorageForRead = []
+        this.cellSfxBufferForReadOnCPU = []
 
         this.cellStateStorage = []
 
@@ -197,9 +213,16 @@ class EZWG {
         // this.LAST_CELL_Y = -1
 
         this.liveInput = ( new Float32Array( this.USER_INPUT_BUFFER_SIZE ) ).fill(0);
+
+        if( this.slio ){
+            this.liveInput[ 11 ] = this.slio.elevenMove;
+            this.liveInput[ this.USER_INPUT_BUFFER_SIZE-1 ] = this.slio.stepLater;
+        }
+
         this.liveInpuUniform = ( new Float32Array( this.USER_INPUT_BUFFER_SIZE ) ).fill(0);
         this.lastKeyDetected = '';
         this.ezweb = {
+            playerOwnedToggle: false,
             isDragging: false,
             CELL_SIZE: this.CELL_SIZE,
             GRID_SIZE: this.GRID_SIZE,
@@ -235,7 +258,9 @@ class EZWG {
             this.cellStateStorage?.forEach(buffer => buffer?.destroy());
             this.userInputTempStorage?.destroy();
             this.userIn_uniformBuffer?.destroy();
+            this.sfxBuffer?.destroy();
             this.cellStateStorageForRead?.destroy();
+            this.cellSfxBufferForReadOnCPU?.destroy();
             this.device = null;
             this.context = null;
 
@@ -366,8 +391,35 @@ class EZWG {
         //requestAnimationFrame(drawText);
     }
 
+    async getPreferredAdapter() {
+        const adapter = await navigator.gpu.requestAdapter({
+            powerPreference: 'high-performance'
+        });
+    
+        if (!adapter) {
+            console.error('No WebGPU adapters found.');
+            return null;
+        }
+    
+        // Check if the adapter matches the desired vendor (NVIDIA is 0x10DE)
+        const adapterInfo = await adapter.requestAdapterInfo();
+    
+        if (adapterInfo.vendor === 0x10DE) { // NVIDIA vendor ID
+            console.log("NVIDIA adapter selected:", adapterInfo.name);
+            return adapter;
+        } else {
+            console.warn("Using non-NVIDIA adapter:", adapterInfo.name);
+            return adapter; // Fallback to the adapter we got
+        }
+    }
+
+
     // The loading logic, buckle up
     async getInsideThere(){
+
+        // let highestadapter = await this.getPreferredAdapter();
+        // console.log("highestadapter");
+        // console.log(highestadapter)
 
  
         // Navigator i guess?
@@ -380,9 +432,8 @@ class EZWG {
         else{
             console.log('isogsodo')
         }
-        const adapter = await navigator.gpu.requestAdapter({
-            powerPreference: 'high-performance'
-        });
+
+        const adapter = await navigator.gpu.requestAdapter({  powerPreference: 'high-performance' });//await this.getPreferredAdapter();//
         if (!adapter) {
             this._createNoWebGPUCanvas()
             throw new Error("No appropriate GPUAdapter found.");
@@ -540,6 +591,11 @@ class EZWG {
                     binding: 5,
                     visibility: GPUShaderStage.VERTEX | GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT, // Make sure the visibility includes VERTEX
                     buffer: { type: "uniform" } // Change from 'storage' to 'uniform'
+                },
+                {
+                    binding: 6,
+					visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "storage" } // SFX audio buffer lffggg
                 }
                 //,
 				//{
@@ -577,6 +633,7 @@ class EZWG {
                 @group(0) @binding(3) var<storage, read_write> EZ_USER_INPUT: array<f32>;
                 @group(0) @binding(4) var<storage> EZ_STORAGE: array<${this.STORAGE_TYPE}>;
                 //@group(0) @binding(5) var<uniform> EZ_USER_INPUT_UNFM: array<f32>;
+                @group(0) @binding(6) var<storage, read_write> EZ_SFX: array<${this.BUFFER_TYPE}>;
 
                 // Confines to a chunk location
                 fn EZ_helper_cellIndexChkRel(cell: vec2u, ogcx: u32, ogcy: u32, chk: u32) -> u32 {
@@ -628,6 +685,7 @@ class EZWG {
                 fn vertexMain(@location(0) position: vec2f, @builtin(instance_index) EZ_INSTANCE: u32) -> VertexOutput {
                     var EZ_OUTPUT: VertexOutput;
                     
+                    var EZ_SFX_SIZE: u32 = ${this.SFX_BUFFER_SIZE_LENGTH};
                     var i = f32(EZ_INSTANCE);
                     let EZ_PARTS_ACROSS_F: f32 = ${this.PARTS_ACROSS}f;
                     let caWu: u32 = ${this.PARTS_ACROSS}u;
@@ -722,6 +780,7 @@ class EZWG {
                 @group(0) @binding(3) var<storage, read_write> EZ_USER_INPUT: array<f32>;
                 @group(0) @binding(4) var<storage> EZ_STORAGE: array<${this.STORAGE_TYPE}>;
                 //@group(0) @binding(5) var<uniform> EZ_USER_INPUT_UNFM: array<f32>;
+                @group(0) @binding(6) var<storage, read_write> EZ_SFX: array<${this.BUFFER_TYPE}>;
 
                 // Confines to a chunk location
                 fn EZ_helper_cellIndexChkRel(cell: vec2u, ogcx: u32, ogcy: u32, chk: u32) -> u32 {
@@ -789,6 +848,7 @@ class EZWG {
                     let caWu: u32 = ${this.PARTS_ACROSS}u;      // used in the vertex mode 
                     var cFaWu: u32= ${this.PARTS_ACROSS*this.FRAG_PIXEL_PER_COMP}u;
 
+                    var EZ_SFX_SIZE: u32 = ${this.SFX_BUFFER_SIZE_LENGTH};
                     const EZ_CELL_VALS: u32 = ${this.CELL_VALS}u;
                     const CHUNKS_ACROSS: u32 = ${this.CHUNKS_ACROSS}u;
                     const EZ_CHUNK_SIZE: u32 = ${this.CHUNK_SIZE}u;
@@ -907,6 +967,7 @@ class EZWG {
 			@group(0) @binding(3) var<storage, read_write> EZ_USER_INPUT: array<f32>;
 			@group(0) @binding(4) var<storage> EZ_STORAGE: array<${this.STORAGE_TYPE}>;
             //@group(0) @binding(5) var<uniform> EZ_USER_INPUT_UNFM: array<f32>;
+            @group(0) @binding(6) var<storage, read_write> EZ_SFX: array<${this.BUFFER_TYPE}>;
 
             // Confines to entire grid space
 			// fn EZ_helper_cellIndex(cell: vec2u) -> u32 {
@@ -978,6 +1039,8 @@ class EZWG {
 			@compute @workgroup_size( ${this.WORKGROUP_SIZE}, ${this.WORKGROUP_SIZE} )
 			fn computeMain(@builtin(global_invocation_id) EZ_CELL: vec3u) {
                 
+            
+                var EZ_SFX_SIZE: u32 = ${this.SFX_BUFFER_SIZE_LENGTH};
                 const EZ_CELL_VALS: u32  = ${this.CELL_VALS}u;
                 const EZ_CHUNKS_ACROSS: u32 = ${this.CHUNKS_ACROSS}u;
                 const EZ_CHUNK_SIZE: u32 = ${this.CHUNK_SIZE}u;
@@ -1113,13 +1176,26 @@ class EZWG {
 
 
 
+ 
+        this.sfxValues = ( new Uint32Array( this.SFX_BUFFER_SIZE ) ).fill(0);
+		this.sfxBuffer = 
+			this.device.createBuffer({
+				label: "Sfx buffer",
+				size: this.sfxValues.byteLength,
+				usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+			});
+		this.device.queue.writeBuffer( this.sfxBuffer, 0, this.sfxValues );
 
 
 
 
-
-
-
+        this.cellSfxBufferForReadOnCPU = 
+            this.device.createBuffer({
+                label: "SFX holderbuffer for cpu",
+                size: this.sfxValues.byteLength,
+				usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+                // usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+            });
 
 
 
@@ -1235,6 +1311,9 @@ class EZWG {
 				}, {
 					binding: 5,
 					resource: { buffer: this.userIn_uniformBuffer }
+				}, {
+					binding: 6,
+					resource: { buffer: this.sfxBuffer }
 				}
                 ],
 			}),
@@ -1259,6 +1338,9 @@ class EZWG {
 				}, {
 					binding: 5,
 					resource: { buffer: this.userIn_uniformBuffer }
+				}, {
+					binding: 6,
+					resource: { buffer: this.sfxBuffer }
 				}
                 ],
 			}),
@@ -1272,11 +1354,31 @@ class EZWG {
 
     // Do a full pass
     run(){
-        if( !this.READ_BUFFER_BUSY && this.device){
+
+        
+        if( !this.READ_BUFFER_BUSY && !this.READ_SFX_BUFFER_BUSY && this.device && !this.CURRENTLY_SAVING && !WANT_TO_LOAD_NEW){
 
             let encoder = this.device.createCommandEncoder();
             // Start a compute pass
             let computePass = encoder.beginComputePass();
+
+
+            
+            //console.log('INCOMING_STEP', INCOMING_STEP); // TODO remove..
+            if( INCOMING_STEP > -1 ){
+                this.step = 0+INCOMING_STEP;
+                this.liveInput[ 11 ] = 4;
+
+                
+                EZWG.SHA1.seed( LAST_SEED_TOLAOD )
+                LAST_SEED_TOLAOD = '';
+
+                INCOMING_STEP = -1;
+            }
+
+            this.liveInput[ this.USER_INPUT_BUFFER_SIZE - 1 ] = this.step
+
+
 
             // Write value of the buffer w users values 
             this.device.queue.writeBuffer( this.userInputTempStorage, 0, this.liveInput);
@@ -1285,7 +1387,7 @@ class EZWG {
 
             this.liveInput[6] = 0;
 
-            this.liveInput[ this.USER_INPUT_BUFFER_SIZE - 1 ] = this.step
+            
 
 
             if( this.ezweb.CELL_PAN_IS_GOING ){
@@ -1334,8 +1436,8 @@ class EZWG {
             }
             
 
-            this.liveInput[ 7 ] = CURRENT_PAN_X;
-            this.liveInput[ 8 ] = CURRENT_PAN_Y;
+            this.liveInput[ 7 ] = (CURRENT_PAN_X + this.GRID_SIZE*1188 ) % this.GRID_SIZE;
+            this.liveInput[ 8 ] = (CURRENT_PAN_Y + this.GRID_SIZE*1188 ) % this.GRID_SIZE;
             this.liveInput[ 9 ] = CURRENT_ZOOM;
             this.liveInput[ 10 ] = CURRENT_RMODE;   // rendre mode
             if( RT_UP ){
@@ -1357,6 +1459,14 @@ class EZWG {
                 this.liveInput[ 11 ] = 4;
             }
 
+            
+
+            
+            // TODO should remove this when debugin done
+            if( PRINT_OUT_NEXT_RUN ){
+                console.log( "this.step for PRINT_OUT_NEXT_RUN:", this.step )
+            }
+            PRINT_OUT_NEXT_RUN = false;
 
             //}
             //// The real indicator is userIn
@@ -1387,21 +1497,37 @@ class EZWG {
             // encoder.copyBufferToBuffer(resolveBuffer, 0, resultBuffer, 0, 16);
 
             let doReadBack = false;
-            const encoder_cpu_helper = this.device.createCommandEncoder();
+            const encoder_mr_cpu_helper = this.device.createCommandEncoder();
+            //const encoder_cpu_helper_forsfx = this.device.createCommandEncoder();
  
             //console.log(this.READ_BACK_FREQ, '---', this.step)
-            if( this.READ_BACK_FREQ > -1 && (this.step%this.READ_BACK_FREQ===0) ){ 
-                doReadBack = true; 
+            if( (this.READ_BACK_FREQ > -1 && (this.step%this.READ_BACK_FREQ===0)) || this.WANTING_TO_SAVE ){ 
+                doReadBack = true;
 
+                //encoder_mr_cpu_helper = this.device.createCommandEncoder();
                 // Copy output buffer to staging buffer
-                encoder_cpu_helper.copyBufferToBuffer(
+                encoder_mr_cpu_helper.copyBufferToBuffer(
                     this.cellStateStorage[((this.step+1) % 2)], 0, // Source offset
                     this.cellStateStorageForRead, 0, // Destination offset
                     this.cellStateArray.byteLength
                 );
-                //this.device.queue.submit( encoder_cpu_helper ); 
+                //this.device.queue.submit( encoder_mr_cpu_helper ); 
             }
-
+            else{
+ 
+                // Always sound computation:
+                // ---------------------
+                // Copy output buffer to staging buffer
+                //console.log("sfxBuffer:", this.sfxBuffer);
+                //console.log("cellSfxBufferForReadOnCPU:", this.cellSfxBufferForReadOnCPU);
+                //console.log("Buffer byte length:", this.sfxBuffer.byteLength);
+                encoder_mr_cpu_helper.copyBufferToBuffer(
+                    this.sfxBuffer, 0, // Source offset
+                    this.cellSfxBufferForReadOnCPU, 0, // Destination offset
+                    this.SFX_BUFFER_SIZE*4//this.sfxBuffer.byteLength // 4 <- byte length 128x128  x 4 bytes per u32
+                );
+            }
+            
 
 
 
@@ -1429,117 +1555,136 @@ class EZWG {
                 pass.draw( this.vertices.length / 2, this.GRID_SIZE * this.GRID_SIZE * (this.PARTS_ACROSS*this.PARTS_ACROSS) );
             }
 
-            
-
             // End the render pass and submit the command buffer
             pass.end();
 
             if( doReadBack === true ){
-
-                
-                let adjCellSize = this.PARTS_ACROSS;//ezweb.CELL_SIZE;
-                if(CURRENT_ZOOM > 4 ){
-                    adjCellSize *= 2;   // zoomed in so make cell size 2x the pixels
-                }
-                else{
-                    adjCellSize /= CURRENT_ZOOM;
-                    // this.READ_BUFFER_BUSY = false;
-                    // return;
-                } 
-
-
-
-
-                // STD Stuff-------..................................
                 this.device.queue.submit( [
                     encoder.finish(),
-                    encoder_cpu_helper.finish()
+                    encoder_mr_cpu_helper.finish()
                 ] );
                 this.READ_BUFFER_BUSY = true;
+                //this.READ_SFX_BUFFER_BUSY = true;
 
-
-
-                
-                // Get how big the on screen net is
-                let rcw = 3;//Math.floor( this.render_canv_w / (adjCellSize) );
-                let rch = 3;//Math.floor( this.render_canv_h / (adjCellSize) );
-
-                // DO THE WHOLE PARTIAL CHUNK LOADING FOR AUDIO LOADING
-                // Assuming you know the grid width (this.GRID_WIDTH) and data format size
-                let X1 = 0;
-                X1 = ((Math.floor(X1 / adjCellSize) + CURRENT_PAN_X) + this.GRID_SIZE) % this.GRID_SIZE;
-                X1 = (X1+this.GRID_SIZE*188) % this.GRID_SIZE;
-                let Y1 = 0;
-                Y1 = ((Math.floor(Y1 / adjCellSize) - CURRENT_PAN_Y) + this.GRID_SIZE) % this.GRID_SIZE;
-                Y1 = (Y1+this.GRID_SIZE*188) % this.GRID_SIZE;
-                     
-
-                let X2 = (X1+rcw+this.GRID_SIZE*188) % this.GRID_SIZE;
-                let Y2 = (Y1+rch+this.GRID_SIZE*188) % this.GRID_SIZE;  // Example coordinates for a wraparound case 
-                    
-
-                // Calculate 1D indices based on 2D coordinates
-                let startIndex =  Y1  * this.GRID_SIZE + X1;
-                let endIndex =   Y2  * this.GRID_SIZE + X2;
-
-                // let tempppp = Math.min( startIndex, endIndex );      // Maybe do not need this
-                // endIndex = Math.max(startIndex, endIndex);
-                // startIndex = tempppp;
-
-                // Total number of elements in the buffer (must be multiple of 8 i guess or error)
-                startIndex -= startIndex%8;
-                let totalBytes = (endIndex-startIndex) + (8 - ((endIndex-startIndex) % 8));//totalElements * 1; // (just the first layer to get the ents)
-
-                startIndex = startIndex * 8;
-                endIndex = endIndex * 8;
-
-                //console.log("startIndex", startIndex, "endIndex", endIndex)
-                // TODO all of this idk how it works 
-                if( startIndex < endIndex ){// Only do window processing when close
+                if( this.WANTING_TO_SAVE ){
+                    this.WANTING_TO_SAVE = false;
+                    this.CURRENTLY_SAVING = true;
+                }
 
                 
                 // Map the staging buffer
-                this.cellStateStorageForRead.mapAsync( GPUMapMode.READ, startIndex, totalBytes ).then(mappedStaginBuffer => {
-                // this.cellStateStorageForRead.mapAsync( GPUMapMode.READ, 0, this.cellStateArray.byteLength ).then(mappedStaginBuffer => {
-                //this.cellStateStorageForRead.mapAsync( GPUMapMode.READ, 0, this.GRID_SIZE*this.GRID_SIZE*4 ).then(mappedStaginBuffer => {
+                this.cellStateStorageForRead.mapAsync( GPUMapMode.READ, 0, this.cellStateArray.byteLength ).then(mappedStaginBuffer => {
                     // Read and print the contents 
-                    // let remaped = this.cellStateStorageForRead.getMappedRange( 0, this.cellStateArray.byteLength );
-                    let remaped = this.cellStateStorageForRead.getMappedRange( startIndex, totalBytes );
-                    //let remaped = this.cellStateStorageForRead.getMappedRange( 0, this.GRID_SIZE*this.GRID_SIZE*4 );
+                    let remaped = this.cellStateStorageForRead.getMappedRange( 0, this.cellStateArray.byteLength );
                     let arrayBufferToAnalyse = remaped.slice(0);
                     //let theUi8 = new Uint8Array( dudata );
+                    var uint32ArrayBuffer = null;
 
+                    if( !this.CURRENTLY_SAVING ){
+                        if(this.BUFFER_TYPE ==='f32'){
+                            let float32ArrayBuffer = new Float32Array(arrayBufferToAnalyse); 
+
+                            //console.log(float32ArrayBuffer)
+                            //goThroughF32ValsAndReprint( float32ArrayBuffer, this );
+                            this.READ_BACK_FUNC( this.step, float32ArrayBuffer )
+                            this.cellStateStorageForRead.unmap();
+                        }
+                        else if(this.BUFFER_TYPE === 'u32'){
+                            uint32ArrayBuffer = new Uint32Array(arrayBufferToAnalyse);  
+                            this.READ_BACK_FUNC( this.step, uint32ArrayBuffer )
+                            this.cellStateStorageForRead.unmap();
+        
+                        }
+                        this.READ_BUFFER_BUSY = false;
+                    }
+                    
+                    // Yes saving, ge tthe download link
+                    else{
+
+                        uint32ArrayBuffer = new Uint32Array(arrayBufferToAnalyse);  
+                        //this.READ_BACK_FUNC( this.step, uint32ArrayBuffer )
+    
+                        // Convert Uint32Array to a string of space-separated numbers
+                        const textContent = uint32ArrayBuffer.join(' ');
+                    
+                        // Create a Blob object with the content
+                        const blob = new Blob([textContent], { type: 'text/plain' });
+                    
+                        // Create a link to download the file
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = STIMMINGS_APP_VERSION + 
+                            '_' + this.CHUNKS_ACROSS + 'x' + this.CHUNK_SIZE
+                            + '_' + 
+                            this.step + '_' + 
+                            EZWG.SHA1.state.lastseed + '.txt'; // Filename
+                        link.click();
+                    
+                        // Clean up the URL object after the download
+                        URL.revokeObjectURL(link.href); 
+                        
+                        // console.log("done savin..");
+                        // console.log('Makin usre -- everying is known...')
+                        // console.log('this.step', this.step)
+                        // console.log(this.liveInput)
+                        this.CURRENTLY_SAVING = false;
+                        this.READ_BUFFER_BUSY = false;
+
+                        // TODO should remove this when debugin done
+                        PRINT_OUT_NEXT_RUN = true;
+                        this.cellStateStorageForRead.unmap();
+                        
+                    }
+                    
+                }).catch( error => {
+                    console.log('errrr mapping ', error);
+                }); 
+            }
+            else{
+                this.device.queue.submit( [ 
+                    encoder.finish(),
+                    encoder_mr_cpu_helper.finish() 
+                ] );
+                
+                this.READ_SFX_BUFFER_BUSY = true;
+                //this.READ_BUFFER_BUSY = true;  // for some reason this needs to be here part 1 otherwise cant load
+
+
+                // Map the staging buffer
+                // FOR SFX
+                this.cellSfxBufferForReadOnCPU.mapAsync( GPUMapMode.READ, 0, this.sfxValues.byteLength ).then(mappedStaginBuffer => {
+                    // Read and print the contents 
+                    let remaped = this.cellSfxBufferForReadOnCPU.getMappedRange( 0, this.sfxValues.byteLength );
+                    let arrayBufferToAnalyse = remaped.slice(0);
+                    //let theUi8 = new Uint8Array( dudata );
+                    var uint32ArrayBuffer = null;
+
+                    
                     if(this.BUFFER_TYPE ==='f32'){
+                        this.cellSfxBufferForReadOnCPU.unmap();
                         let float32ArrayBuffer = new Float32Array(arrayBufferToAnalyse); 
 
                         //console.log(float32ArrayBuffer)
                         //goThroughF32ValsAndReprint( float32ArrayBuffer, this );
-                        this.READ_BACK_FUNC( this.step, float32ArrayBuffer )
+                        this.SFX_HANDLER_FUNC( this.step, float32ArrayBuffer )
     
-                        this.cellStateStorageForRead.unmap();
                     }
                     else if(this.BUFFER_TYPE === 'u32'){
-                        let uint32ArrayBuffer = new Uint32Array(arrayBufferToAnalyse);  
-                        this.READ_BACK_FUNC( this.step, uint32ArrayBuffer )
+                        this.cellSfxBufferForReadOnCPU.unmap();
+                        uint32ArrayBuffer = new Uint32Array(arrayBufferToAnalyse);  
+                        this.SFX_HANDLER_FUNC( this.step, uint32ArrayBuffer )
     
-                        this.cellStateStorageForRead.unmap();
                     }
-                    
-                    
-                    this.READ_BUFFER_BUSY = false;
-                }).catch( error => {
-                    console.log('errrr mapping ', error);
-                });
-                
-                }else{
-                    this.READ_BUFFER_BUSY = false;
-                }
-                
 
+                    this.READ_SFX_BUFFER_BUSY = false;
+                    //this.READ_BUFFER_BUSY = false;  // for some reason this needs to be here part 2 otherwise cant load
+
+                    
+                }).catch( error => {
+                    console.log('errrr mapping sfxxxx ', error);
+                });
             }
-            else{
-                this.device.queue.submit( [ encoder.finish() ] );
-            }
+
 
             
             //console.log("this.step==>", this.step);
@@ -1555,6 +1700,7 @@ class EZWG {
         else{
             console.log('READ BUFFER BUSY: ', this.READ_BUFFER_BUSY, 'at time index', this.step)
         }
+        //}
 
     }
  
@@ -1720,8 +1866,8 @@ class EZWG {
             else{
                 adjCellSize /= CURRENT_ZOOM;
             }
-            this.ezweb.dragStartX = ((Math.floor(xx / adjCellSize) + CURRENT_PAN_X) + this.GRID_SIZE) % this.GRID_SIZE;
-            this.ezweb.dragStartY = ((Math.floor(yy / adjCellSize) - CURRENT_PAN_Y) + this.GRID_SIZE) % this.GRID_SIZE;
+            this.ezweb.dragStartX = ((Math.floor(xx / adjCellSize) + CURRENT_PAN_X) + this.GRID_SIZE*1088) % this.GRID_SIZE;
+            this.ezweb.dragStartY = ((Math.floor(yy / adjCellSize) - CURRENT_PAN_Y) + this.GRID_SIZE*1088) % this.GRID_SIZE;
         }
     }
 
@@ -1769,8 +1915,8 @@ class EZWG {
                 else{
                     adjCellSize /= CURRENT_ZOOM;
                 }
-                this.ezweb.dragEndX = (Math.floor(xx / adjCellSize) + CURRENT_PAN_X + this.GRID_SIZE) % this.GRID_SIZE;
-                this.ezweb.dragEndY = (Math.floor(yy / adjCellSize) - CURRENT_PAN_Y + this.GRID_SIZE) % this.GRID_SIZE;
+                this.ezweb.dragEndX = (Math.floor(xx / adjCellSize) + CURRENT_PAN_X + this.GRID_SIZE*1088) % this.GRID_SIZE;
+                this.ezweb.dragEndY = (Math.floor(yy / adjCellSize) - CURRENT_PAN_Y + this.GRID_SIZE*1088) % this.GRID_SIZE;
     
                 if (this.liveInput[6] < 1) {
                     this.liveInput[0] = this.ezweb.dragStartX;
@@ -1816,7 +1962,7 @@ class EZWG {
     
                     this.ezweb.LAST_CELL_X = this.ezweb.dragStartX;
                     this.ezweb.LAST_CELL_Y = this.ezweb.dragStartY;
-                    console.log('set new input:', this.liveInput)
+                    //console.log('set new input:', this.liveInput)
                 }
                 else{
                     console.log('rejected input')
@@ -2117,3 +2263,6 @@ class EZWG {
     
 
 } 
+
+// Always assign to global (works for both Node.js and browser)
+global.EZWG = EZWG;

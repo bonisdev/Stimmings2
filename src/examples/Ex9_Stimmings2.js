@@ -1,4 +1,14 @@
-var Ex9_Stimmings2 = ( ) => { 
+
+//(INSERT ENTS CONSTANTS HERE)
+
+
+
+
+
+var Ex9_Stimmings2 = ( ) => {
+
+//-((INSERT QUICK THE ANIMATION NUMBERS FROM SCRUNCHER.JS))
+// ^^^ this also includes all the helpful constants for organziiang and sorting
 
 //((((PUT UR ENTIRE IMG BUFFER HERE))))
 
@@ -6,6 +16,10 @@ var Ex9_Stimmings2 = ( ) => {
 
 //(((THIS EXACT STRING GETS REPLACED WITH DATABSE)))
 
+
+ALL_ENTS = EntEntries;
+ALL_IMGS = spriteb64s;
+ALL_FULLENTS = FullEntEntries;
 
     let computeWGSL = 
 `
@@ -51,9 +65,12 @@ var Ex9_Stimmings2 = ( ) => {
     //     );
     //let packedPixels = [].concat( allsprites );
  
-    var randomSeedToUse = EZWG.SHA1.seed('ddfdstimmers2dd' + Date.now() + Math.random())
+    var randomSeedToUse = 'ddfdstimmefrs2dd' + Date.now() + Math.random();
     randomSeedToUse = EZWG.SHA1.sha1( randomSeedToUse );
-    console.log("randomSeedToUse:", randomSeedToUse)
+    EZWG.SHA1.seed( randomSeedToUse );
+
+    console.log("randomSeedToUse:", randomSeedToUse);
+    document.getElementById('putseedhere').innerHTML = ''+randomSeedToUse;
     var lastReadBackTime = Date.now();
     
     // Usage example
@@ -70,7 +87,7 @@ var Ex9_Stimmings2 = ( ) => {
             FRAG_PIXEL_MODE: true, // switches rendering logic to the fragment shader instead of
                                     // many draw calls to two traingle shape  
     
-        READ_BACK_FREQ: 111,     // Every 15 time steps read back the gpu buffer
+        READ_BACK_FREQ: -1,     // Every 15 time steps read back the gpu buffer
         READ_BACK_FUNC: ( currentStep, entireBuffer ) => {
             // console.log('------__________--------------')
             // console.log('entireBuffer', entireBuffer.length);
@@ -94,7 +111,83 @@ var Ex9_Stimmings2 = ( ) => {
             let diffinTime = Date.now();
             //console.log(`${diffinTime - lastReadBackTime}`)
             lastReadBackTime = diffinTime
-        }, 
+        },
+
+        SFX_HANDLER_FUNC: ( currentStep, entireBuffer, lastBuffer ) => {
+
+            //console.log(CURRENT_ZOOM)
+            
+            let adjSpeed = 1;
+            if( CURRENT_ZOOM > 4 ){ 
+                adjSpeed *= 2;
+            }
+            else{ 
+                adjSpeed /= CURRENT_ZOOM; 
+            }
+            if( isNaN(CURRENT_ZOOM) ) {adjSpeed = 1;}
+            adjSpeed *= EZ_EXAMPLE.CELL_SIZE;
+            //console.log(window.innerWidth  ,',', adjSpeed )
+
+            let xem = Math.floor( window.innerWidth  / adjSpeed );
+            let yem = Math.floor( window.innerHeight / adjSpeed );
+
+
+            let hits = {};
+            let wSOMETHIGNS = 0;
+            let SFXBUFFERSIZE = 128;
+            //console.log('SFX Buff', entireBuffer.length)
+            for(let bn = 0; bn< entireBuffer.length;bn++){
+
+                let xx = bn % SFXBUFFERSIZE;
+                let yy = Math.floor(bn / SFXBUFFERSIZE);
+                if( xx < xem && yy < yem ){
+                    let valm = entireBuffer[bn];
+                    let entt = (valm >> 0) & 0x0000FFFF;
+                    valm = (valm >> 16) & 0x0000FFFF; 
+                    // If value is stepp on
+                    if(valm > 0 && valm !==5 && entt > 0){  
+                        if(hits['entt'+entt]){
+                            hits['entt'+entt][valm] = 1;
+                        }
+                        else{
+                            hits['entt'+entt] = [0, 0, 0, 0, 0];
+                            hits['entt'+entt][valm] = 1;
+                        }
+                        wSOMETHIGNS = 1;
+                        
+                    } 
+                }
+
+            } 
+            if( wSOMETHIGNS > 0 ){
+                
+                
+
+                let objskeys = Object.keys( hits );
+                for(let j = 0;j < objskeys.length;j++){
+                    let sfxvals = hits[objskeys[j]];
+                    let en = objskeys[j].slice(4);
+                    en = Number(en);
+                     
+
+                    let songs = ALL_FULLENTS[en][2];
+                    for(let i = 0;i < songs.length;i++){ 
+                        if(sfxvals[1+i] > 0 && songs[i].length>0){
+                            addToConsole( 'sfx: '+ songs[i] + ' on ' + ALL_FULLENTS[en][0], { slowFade: true });
+                        }
+                    }
+
+
+
+                }
+                //console.log(hits);
+                // addToConsole( ''+JSON.stringify(hits), { slowFade: true });
+                // console.log('SOMETHINGS:', wSOMETHIGNS)
+                // console.log('@'+currentStep)
+            }
+            //console.log(wSOMETHIGNS,'SFX Buff', entireBuffer.length)
+            
+        },
 
         STORAGE: totalbuffer,//packedPixels,
 
@@ -121,26 +214,70 @@ var Ex9_Stimmings2 = ( ) => {
     let glength = config.CHUNK_SIZE*config.CHUNKS_ACROSS;
     let attlength = glength * glength;
     
-    let initialState = new Uint32Array( 
+    let initialState = new Uint32Array(
         attlength *
         config.CELL_VALS );
     
     for(let b = 0;b < initialState.length;b++){
-        initialState[b] = 0;
+        initialState[b] = 5;
     }
 
     EZWG.SHA1.seed(randomSeedToUse + 'map_gen')
 
 //(((THIS EXACT STRING GETS REPLACED WITH MAPGENNER)))
 
-    STIMMINGS_MAP_GEN.perlin_W_TightWinding(EZWG.SHA1, initialState, glength, attlength )
 
 
- 
-    config.STARTING_BUFFER = initialState;
+    
+    if( WANT_TO_LOAD_NEW){
+        console.log("WANNA LOAD AN EXISTING MAP");
+        console.log('ENTIRE_LAST_LOADED.length', ENTIRE_LAST_LOADED.length)
+        config.STARTING_BUFFER = ENTIRE_LAST_LOADED;
+    }
+    else{
+        STIMMINGS_MAP_GEN.perlin_W_TightWinding(EZWG.SHA1, initialState, glength, attlength )
+        console.log("NEW MAP FINE W ME");
+        config.STARTING_BUFFER = initialState;
+    }
 
-    // Intital set the default runner to this
-    EZ_EXAMPLE = new EZWG( config);
+
+    
+    if( WANT_TO_LOAD_NEW){
+        // EZ_EXAMPLE.step = INCOMING_STEP+1;
+        WANT_TO_LOAD_NEW = false;
+        
+        config.CHUNKS_ACROSS = 0+INCOMING_CHUNKS;// = Number( kk[1].split('x')[0] );
+        config.CHUNK_SIZE = 0+INCOMING_CHNK_SIZE;// = Number( kk[1].split('x')[1] );
+
+        INCOMING_CHUNKS = -1;
+        INCOMING_CHNK_SIZE = -1;
+        document.getElementById('putseedhere').innerHTML = '-*unknwon*- (loaded)';
+        //tried -1, -1  tried +1 , +1, tried 0, 0 
+        // Intital set the default runner to this // TODO it's not perfect... some thing is off by one...........
+        //........................................................................................
+        //.......................................................................................
+        // much to think about here....................................
+        // mayche check the compute shdaer for when 
+        // print out val s when saving?
+        // waht the fuck it's different every time XDDDD da fuQ?W
+        // WHerre da random nubmabs comin from
+        
+        EZ_EXAMPLE = new EZWG( config, { elevenMove: 4, stepLater: INCOMING_STEP } );
+        EZ_EXAMPLE.step = INCOMING_STEP;
+        EZ_EXAMPLE.liveInput[ 11 ] = 4; 
+        EZWG.SHA1.seed( LAST_SEED_TOLAOD );
+
+        // ENTIRE_LAST_LOADED = null;
+        // INCOMING_STEP = -1;// this is done asynconsoult later
+    }
+    else{ 
+        // Intital set the default runner to this
+        EZ_EXAMPLE = new EZWG( config );
+    }
+
+
+    PRINT_OUT_NEXT_RUN = true;// TODO debgu fmreove for the detmeriensitic loading glitch
+
     EZ_EXAMPLE.UPDATE_INTERVAL = 55;//45;
     
 };
