@@ -70,7 +70,7 @@
             opacity: 1;
             transition: opacity 1s ease-in-out;
             color: white;
-            padding: 10px;
+            padding: 4px;
           }
           
           .fade {
@@ -491,7 +491,6 @@
 	<link rel="shortcut icon" type="image/x-icon" href="src/largeking.ico">
 </head>
 <body>
-    <!-- <script src="src/stimmings_sfx.js"></script>  -->
     <script src="util/sprites_compiled64.js"></script>
  
     <script src="src/EZWG.js"></script> 
@@ -579,12 +578,17 @@
 
                     <div>
                         <input type="checkbox" id="checkbox2">
-                        <label for="checkbox2">entity team=1</label>
+                        <label for="checkbox2">show allegianced</label>
                     </div>
                     <div>
                         <input type="checkbox" id="checkbox3">
                         <label for="checkbox3">paused</label>
                     </div>
+
+                    <label for="counter">entity team=</label>
+                    <input type="number" id="counter" name="counter" min="0" max="4" step="1" value="0" oninput="checkValue(this)">
+                    <span id="counter-label">(0=gaia)</span>
+
                 </div>
             </div>
             
@@ -1157,6 +1161,8 @@ var EntEntries = [
         var CURRENT_ZOOM = 8;
         var CURRENT_RMODE = 0;
 
+        var CURRENT_TEAM_SEL = 0;
+
         var CURRENT_PAN_X = 0;
         var CURRENT_PAN_Y = 0;
 
@@ -1171,6 +1177,14 @@ var EntEntries = [
         var RT_LEFT = false;
         var RT_RIGHT = false;
         var RT_X = false;
+
+
+        // Right now just used for the adaptive zooming
+        var GLOBAL_MOUSE_X = 0;
+        var GLOBAL_MOUSE_Y = 0;
+
+        // Used for momentum holding when slam zooming into the earf mountain
+        var LAST_ZOOM_IN_STEP = 0;
 
         console.log('another one')
          
@@ -1187,7 +1201,7 @@ var EntEntries = [
         //let audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
         function playSound(index, audioem, pitchShift = 0) {
-            if (audioem) {
+            if (audioem && EZ_EXAMPLE && EZ_EXAMPLE.soundToggled) {
                 const source = audioContext.createBufferSource();
                 source.buffer = audioem;
         
@@ -1197,9 +1211,24 @@ var EntEntries = [
                 // Connect to the audio context and play
                 source.connect(audioContext.destination);
                 source.start(0); // Play immediately
-            } else {
-                console.error('Audio file not loaded yet:', index);
             }
+            // else {
+            //     console.error('Audio file not loaded yet:', index);
+            // }
+        }
+        function checkValue(input) {
+            let value = parseInt(input.value);
+            if (isNaN(value)) {
+                input.value = 0;
+            } else if (value < 0) {
+                input.value = 0;
+            } else if (value > 4) {
+                input.value = 4;
+            }
+            
+            CURRENT_TEAM_SEL = input.value;
+            // Update the label with the current value
+            //document.getElementById("counter-label").textContent = "Current Value: " + input.value;
         }
 
         // Function to unlock the AudioContext after a user gesture
@@ -1333,7 +1362,7 @@ var EntEntries = [
             else { 
             }
             if( EZ_EXAMPLE ){
-              EZ_EXAMPLE.ezweb.playerOwnedToggle = this.checked ? true : false;
+              EZ_EXAMPLE.ezweb.shownerShip = this.checked ? true : false;
             }
           });
           document.getElementById('checkbox3').addEventListener('change', function() {
@@ -1346,6 +1375,12 @@ var EntEntries = [
               EZ_EXAMPLE.paused = this.checked ? true : false;
             }
           });
+
+          document.addEventListener('mousemove', function(event) {
+            GLOBAL_MOUSE_X = event.clientX;
+            GLOBAL_MOUSE_Y = event.clientY;
+            //console.log(`Mouse X: ${GLOBAL_MOUSE_X}, Mouse Y: ${GLOBAL_MOUSE_Y}`);
+        });
           
 
 
@@ -1500,6 +1535,8 @@ var EntEntries = [
 
                 
                 else if( (''+event.key) === 'q' || (''+event.key) === 'Q' ){
+ 
+                    console.log('CURRENT_ZOOM', CURRENT_ZOOM)
                     let adjSpeed = 1;
                     if( CURRENT_ZOOM > 4 ){
                         CURRENT_ZOOM = 1;
@@ -1518,8 +1555,9 @@ var EntEntries = [
                     //CURRENT_PAN_X -= Math.floor(xem*3.5);
                     //CURRENT_PAN_Y += Math.floor(yem);
                     // CURRENT_ZOOM = CURRENT_ZOOM * 2;
+                    
 
-                }
+                } 
                 else if( (''+event.key) === 'e' || (''+event.key) === 'E' ){
                     CURRENT_RMODE ++;
                     CURRENT_RMODE = CURRENT_RMODE %2 ;
@@ -1619,16 +1657,121 @@ var EntEntries = [
             }
 
         });
+        // Add event listener to handle the wheel event
+        window.addEventListener('wheel', function(event) {
+            // Normalize the scroll value
+            const delta = Math.sign(event.deltaY);
+        
+            // ZOOM OUT
+            if (delta > 0) { 
+                if(EZ_EXAMPLE && CURRENT_ZOOM !== 4){
+                    
+                    let adjSpeed = 1;
+                    let starginZoomLevel = 1;// = CURRENT_ZOOM;
 
-        // Get the element to update the scroll status
-        const scrollStatus = document.getElementById('scrollStatus');
+                    // Get what it wsa 
+                    if( CURRENT_ZOOM === 1 ){
+                        starginZoomLevel = 1;
+                    }
+                    else if( CURRENT_ZOOM === 2 ){
+                        starginZoomLevel = 0.5;
+                    }
+                    else if( CURRENT_ZOOM === 4 ){
+                        starginZoomLevel = 999;
+                    }
+                    else if( CURRENT_ZOOM === 8 ){
+                        starginZoomLevel = 2;
+                    }
+                    
+                    
+                    if( CURRENT_ZOOM > 4 ){ 
+                        CURRENT_ZOOM = 1;
+                        adjSpeed *= 2;
+                    }
+                    else{ 
+                        CURRENT_ZOOM = CURRENT_ZOOM*2;
+                        adjSpeed /= CURRENT_ZOOM;
 
-        // Handle the scroll event
-        window.addEventListener('scroll', () => {
-            // Update the scroll Y position
-            const scrollY = window.scrollY || window.pageYOffset;
-            //scrollStatus.textContent = `Scroll Y: ${scrollY}`;
-            console.log(scrollY)
+                    }
+
+
+                    adjSpeed *= EZ_EXAMPLE.CELL_SIZE;
+ 
+
+                    let xem = Math.floor( window.innerWidth  / (starginZoomLevel*EZ_EXAMPLE.CELL_SIZE) );
+                    let yem = Math.floor( window.innerHeight / (starginZoomLevel*EZ_EXAMPLE.CELL_SIZE) );
+
+                    EZ_EXAMPLE.ezweb.CELL_FLOAT_X -= Math.floor(xem/2);
+                    EZ_EXAMPLE.ezweb.CELL_FLOAT_Y += Math.floor(yem/2);
+
+                }
+            }
+
+            // ZOOM IN
+            else { 
+                if(EZ_EXAMPLE && CURRENT_ZOOM !== 8){
+                    
+                    let adjSpeed = 1;
+                    let starginZoomLevel = 1;// = CURRENT_ZOOM;
+
+                    // Get what it wsa 
+                    if( CURRENT_ZOOM === 1 ){
+                        starginZoomLevel = 1;
+                    }
+                    else if( CURRENT_ZOOM === 2 ){
+                        starginZoomLevel = 1/2;
+                    }
+                    else if( CURRENT_ZOOM === 4 ){
+                        starginZoomLevel = 1/4;
+                    }
+                    else if( CURRENT_ZOOM === 8 ){
+                        starginZoomLevel = 999;
+                    }
+                    
+                    
+                    if(CURRENT_ZOOM < 2){ 
+                        CURRENT_ZOOM = 8;
+                    }
+                    else{
+                        CURRENT_ZOOM = Math.floor(CURRENT_ZOOM/2); 
+
+                    }
+
+                    
+
+                    
+ 
+
+                    let xem = Math.floor( window.innerWidth  / (starginZoomLevel*EZ_EXAMPLE.CELL_SIZE) );
+                    let yem = Math.floor( window.innerHeight / (starginZoomLevel*EZ_EXAMPLE.CELL_SIZE) );
+
+                    let quickMouseAdjX = Math.floor( GLOBAL_MOUSE_X / (starginZoomLevel*EZ_EXAMPLE.CELL_SIZE) ); 
+                    let quickMouseAdjY = Math.floor( GLOBAL_MOUSE_Y / (starginZoomLevel*EZ_EXAMPLE.CELL_SIZE) ); 
+
+                    quickMouseAdjX = Math.floor( (quickMouseAdjX - xem/2) * 1.0);
+                    quickMouseAdjY = Math.floor( (quickMouseAdjY - yem/2) * 1.0);
+
+                    
+                    if( EZ_EXAMPLE.step > LAST_ZOOM_IN_STEP + 4 ){
+                        // there's been enough time since last zoom in to update which way goin in
+                        // LOCKED_MOUSE_X_ZOOM
+                    }
+                    else{
+                        // else dont follow the mouse
+                        quickMouseAdjX = 0;
+                        quickMouseAdjY = 0;
+                    }
+
+                    LAST_ZOOM_IN_STEP = EZ_EXAMPLE.step + 0;
+
+                    EZ_EXAMPLE.ezweb.CELL_FLOAT_X += Math.floor(xem/4) + quickMouseAdjX;
+                    EZ_EXAMPLE.ezweb.CELL_FLOAT_Y -= Math.floor(yem/4) + quickMouseAdjY;
+
+                }
+            }
+        
+            // Optionally, you can prevent the default scroll behavior
+            // event.preventDefault();
         });
 
 

@@ -158,7 +158,7 @@ class EZWG {
 
 
         this.TOTAL_CELLS = this.GRID_SIZE * this.GRID_SIZE 
-        this.UPDATE_INTERVAL = 45
+        this.UPDATE_INTERVAL = 55
 
         this.USER_INPUT_BUFFER_SIZE = 8*8;
 
@@ -224,7 +224,9 @@ class EZWG {
         this.liveInpuUniform = ( new Float32Array( this.USER_INPUT_BUFFER_SIZE ) ).fill(0);
         this.lastKeyDetected = '';
         this.ezweb = {
-            playerOwnedToggle: false,
+            // lastSeenMouseX: 0,
+            // lastSeenMouseY: 0,
+            shownerShip: false,
             isDragging: false,
             CELL_SIZE: this.CELL_SIZE,
             GRID_SIZE: this.GRID_SIZE,
@@ -695,6 +697,7 @@ class EZWG {
                     let EZ_PARTS_ACROSS_F: f32 = ${this.PARTS_ACROSS}f;
                     let caWu: u32 = ${this.PARTS_ACROSS}u;
 
+                    const EZ_USER_IN_SZE: u32 = ${this.USER_INPUT_BUFFER_SIZE}u;
                     const EZ_CELL_VALS: u32 = ${this.CELL_VALS}u;
                     const CHUNKS_ACROSS: u32 = ${this.CHUNKS_ACROSS}u;
                     const EZ_CHUNK_SIZE: u32 = ${this.CHUNK_SIZE}u;
@@ -853,6 +856,7 @@ class EZWG {
                     let caWu: u32 = ${this.PARTS_ACROSS}u;      // used in the vertex mode 
                     var cFaWu: u32= ${this.PARTS_ACROSS*this.FRAG_PIXEL_PER_COMP}u;
 
+                    const EZ_USER_IN_SZE: u32 = ${this.USER_INPUT_BUFFER_SIZE}u;
                     var EZ_SFX_SIZE: u32 = ${this.SFX_BUFFER_SIZE_LENGTH};
                     const EZ_CELL_VALS: u32 = ${this.CELL_VALS}u;
                     const CHUNKS_ACROSS: u32 = ${this.CHUNKS_ACROSS}u;
@@ -1045,6 +1049,7 @@ class EZWG {
 			fn computeMain(@builtin(global_invocation_id) EZ_CELL: vec3u) {
                 
             
+                const EZ_USER_IN_SZE: u32 = ${this.USER_INPUT_BUFFER_SIZE}u;
                 var EZ_SFX_SIZE: u32 = ${this.SFX_BUFFER_SIZE_LENGTH};
                 const EZ_CELL_VALS: u32  = ${this.CELL_VALS}u;
                 const EZ_CHUNKS_ACROSS: u32 = ${this.CHUNKS_ACROSS}u;
@@ -1464,6 +1469,9 @@ class EZWG {
                 this.liveInput[ 11 ] = 4;
             }
 
+            this.liveInput[ 12 ] = CURRENT_TEAM_SEL;
+
+            this.liveInput[ 13 ] = this.ezweb.shownerShip ? 1 : 0;
             
 
             
@@ -1506,7 +1514,7 @@ class EZWG {
             //const encoder_cpu_helper_forsfx = this.device.createCommandEncoder();
  
             //console.log(this.READ_BACK_FREQ, '---', this.step)
-            if( (this.READ_BACK_FREQ > -1 && (this.step%this.READ_BACK_FREQ===0)) || this.WANTING_TO_SAVE ){ 
+            if( (this.READ_BACK_FREQ > -1 && (this.step%this.READ_BACK_FREQ===0)) || (this.WANTING_TO_SAVE && this.step%2===1) ){ 
                 doReadBack = true;
 
                 //encoder_mr_cpu_helper = this.device.createCommandEncoder();
@@ -1571,7 +1579,7 @@ class EZWG {
                 this.READ_BUFFER_BUSY = true;
                 //this.READ_SFX_BUFFER_BUSY = true;
 
-                if( this.WANTING_TO_SAVE ){
+                if( (this.WANTING_TO_SAVE  && this.step%2===0) ){
                     this.WANTING_TO_SAVE = false;
                     this.CURRENTLY_SAVING = true;
                 }
@@ -1592,14 +1600,13 @@ class EZWG {
                             //console.log(float32ArrayBuffer)
                             //goThroughF32ValsAndReprint( float32ArrayBuffer, this );
                             this.READ_BACK_FUNC( this.step, float32ArrayBuffer )
-                            this.cellStateStorageForRead.unmap();
                         }
-                        else if(this.BUFFER_TYPE === 'u32'){
+                        else if(this.BUFFER_TYPE === 'u32'){ 
                             uint32ArrayBuffer = new Uint32Array(arrayBufferToAnalyse);  
                             this.READ_BACK_FUNC( this.step, uint32ArrayBuffer )
-                            this.cellStateStorageForRead.unmap();
         
                         }
+                        this.cellStateStorageForRead.unmap();
                         this.READ_BUFFER_BUSY = false;
                     }
                     
@@ -1635,14 +1642,16 @@ class EZWG {
                         this.CURRENTLY_SAVING = false;
                         this.READ_BUFFER_BUSY = false;
 
+                        this.cellStateStorageForRead.unmap();
                         // TODO should remove this when debugin done
                         PRINT_OUT_NEXT_RUN = true;
-                        this.cellStateStorageForRead.unmap();
                         
                     }
                     
                 }).catch( error => {
-                    console.log('errrr mapping ', error);
+                    this.READ_BUFFER_BUSY = false;
+
+                    console.log('errrr mapping big grid', error);
                 }); 
             }
             else{
@@ -1666,7 +1675,6 @@ class EZWG {
 
                     
                     if(this.BUFFER_TYPE ==='f32'){
-                        this.cellSfxBufferForReadOnCPU.unmap();
                         let float32ArrayBuffer = new Float32Array(arrayBufferToAnalyse); 
 
                         //console.log(float32ArrayBuffer)
@@ -1674,18 +1682,19 @@ class EZWG {
                         this.SFX_HANDLER_FUNC( this.step, float32ArrayBuffer )
     
                     }
-                    else if(this.BUFFER_TYPE === 'u32'){
-                        this.cellSfxBufferForReadOnCPU.unmap();
+                    else if(this.BUFFER_TYPE === 'u32'){ 
                         uint32ArrayBuffer = new Uint32Array(arrayBufferToAnalyse);  
                         this.SFX_HANDLER_FUNC( this.step, uint32ArrayBuffer )
     
                     }
 
+                    this.cellSfxBufferForReadOnCPU.unmap();
                     this.READ_SFX_BUFFER_BUSY = false;
                     //this.READ_BUFFER_BUSY = false;  // for some reason this needs to be here part 2 otherwise cant load
 
                     
                 }).catch( error => {
+                    this.READ_SFX_BUFFER_BUSY = false;
                     console.log('errrr mapping sfxxxx ', error);
                 });
             }
@@ -1877,7 +1886,7 @@ class EZWG {
     }
 
     handleMouseMove(event){
-        if(this.ezweb.CELL_PAN_IS_GOING){ 
+        if(this.ezweb.CELL_PAN_IS_GOING){
 
             // Add your custom logic for right-click dragging behavior here
             const rect = this.canvas.getBoundingClientRect();
@@ -1893,8 +1902,12 @@ class EZWG {
 
             this.ezweb.CELL_PAN_CURR_X = xx;//((Math.floor(xx / adjCellSize) + CURRENT_PAN_X) + this.GRID_SIZE) % this.GRID_SIZE;
             this.ezweb.CELL_PAN_CURR_Y = yy;//((Math.floor(yy / adjCellSize) - CURRENT_PAN_Y) + this.GRID_SIZE) % this.GRID_SIZE;
-            
         }
+
+        // const rect = this.canvas.getBoundingClientRect();
+        // this.ezweb.lastSeenMouseX = event.clientX - rect.left;
+        // this.ezweb.lastSeenMouseY = event.clientY - rect.top;
+        // console.log( 'xy', this.ezweb.lastSeenMouseX, this.ezweb.lastSeenMouseY );
     }
 
     handleMouseUp(event) {
