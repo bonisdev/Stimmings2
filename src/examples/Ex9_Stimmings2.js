@@ -18,6 +18,9 @@ var Ex9_Stimmings2 = ( ) => {
 //(((THIS EXACT STRING GETS REPLACED WITH DATABSE)))
 
 
+//(((USE THIS EXACT STRING TO PLACE THE BPS)))
+
+
 ALL_ENTS = EntEntries;
 ALL_IMGS = spriteb64s;
 ALL_FULLENTS = FullEntEntries;
@@ -94,6 +97,7 @@ ALL_FULLENTS = FullEntEntries;
         // Synchronously decode the ArrayBuffer into an AudioBuffer
         audioContext.decodeAudioData(arrayBuffer, function(buffer) {
             STAD[''+ALL_SFX_KEYS[e]][2] = buffer;//audioFiles[i] = buffer; // Store the decoded AudioBuffer
+            STAD[''+ALL_SFX_KEYS[e]][1] = ( STAD[''+ALL_SFX_KEYS[e]][1] ).length 
         }, function(error) {
             console.error('Error decoding audio data:', error);
         });
@@ -167,6 +171,8 @@ ALL_FULLENTS = FullEntEntries;
             let xem = Math.floor( window.innerWidth  / adjSpeed );
             let yem = Math.floor( window.innerHeight / adjSpeed );
 
+            // i guess just 
+            //let bpscX = 
 
             let hits = {};
             let wSOMETHIGNS = 0;
@@ -176,54 +182,101 @@ ALL_FULLENTS = FullEntEntries;
 
                 let xx = bn % SFXBUFFERSIZE;
                 let yy = Math.floor(bn / SFXBUFFERSIZE);
+
+
+
                 if( xx < xem && yy < yem ){
                     let valm = entireBuffer[bn];
                     let entt = (valm >> 0) & 0x0000FFFF;
                     valm = (valm >> 16) & 0x0000FFFF; 
                     // If value is stepp on
-                    if(valm > 0 && valm !==5 && entt > 0){  
+                    if(valm > 0 && entt > 0){//  && valm !==5
                         if(hits['entt'+entt]){
-                            hits['entt'+entt][valm] = 1;
+                            hits['entt'+entt][valm]++;
                         }
-                        else{
-                            hits['entt'+entt] = [0, 0, 0, 0, 0];
+                        else{                                        // step on,  suggestive team conversion
+                            hits['entt'+entt] = [0, 0, 0, 0,   0,    0, 0]; //step on, and suggestive conversion 
                             hits['entt'+entt][valm] = 1;
                         }
                         wSOMETHIGNS = 1;
                         
                     } 
-                }
+                } 
+            }
 
-            } 
             if( wSOMETHIGNS > 0 ){
-                
-                
-
                 let objskeys = Object.keys( hits );
                 for(let j = 0;j < objskeys.length;j++){
                     let sfxvals = hits[objskeys[j]];
                     let en = objskeys[j].slice(4);
                     en = Number(en);
-                     
 
                     let songs = ALL_FULLENTS[en][2];
-                    for(let i = 0;i < songs.length;i++){ 
-                        if(sfxvals[1+i] > 0 && songs[i].length>0){
+                    
+                    for(let i = 0;i < songs.length;i++){
+                        if(sfxvals[1+i] > 0 && songs[i].length > 0 ){
                             //addToConsole( 'sfx: '+ songs[i] + ' on ' + ALL_FULLENTS[en][0], { slowFade: true });
-                            addToConsole( 'sfx size: '+ STAD[''+songs[i]][1].length, { slowFade: true });
-                            
-                            playSound( -1, STAD[''+songs[i]][2], 0 );
+                            addToConsole( 'sfx: '+ STAD[''+songs[i]][0], { slowFade: true });
+                            playSound( -1, STAD[''+songs[i]][2], ((EZ_EXAMPLE.step*119) % 28) );
                         }
                     }
 
+                    // Conversion sound is positivbe
+                    if(sfxvals[6] > 0 ){ 
+                        addToConsole( 'sfx size: '+ STAD[''+'sfx_convert'][1], { slowFade: true });
+                        playSound( -1, STAD[''+'sfx_convert'][2], (EZ_EXAMPLE.step % 28) );
+                    }
+                }
+            }
 
+
+
+
+            
+            // IF SCREENSHOT MODE:  DO THE WHOLE LOOP AGAIN:: (AFter CLACUALTING)
+            if( EZ_EXAMPLE.ezweb.grabNextBp ){
+
+                // Camera snapping sound 
+                addToConsole( 'sfx: '+ STAD[''+'sfx_dslr_cam'][0], { color: 'green' });
+                playSound( -1, STAD[''+'sfx_dslr_cam'][2], ((EZ_EXAMPLE.step*119) % 28) );
+
+                // console.log("searching for: ", 
+                //     EZ_EXAMPLE.ezweb.gpGrabStartX, 
+                //     EZ_EXAMPLE.ezweb.gpGrabStartY, 
+                //     EZ_EXAMPLE.ezweb.gpGrabEndX, 
+                //     EZ_EXAMPLE.ezweb.gpGrabEndY
+                // );
+                let minX = Math.min(EZ_EXAMPLE.ezweb.gpGrabStartX, EZ_EXAMPLE.ezweb.gpGrabEndX );
+                let minY = Math.min(EZ_EXAMPLE.ezweb.gpGrabStartY, EZ_EXAMPLE.ezweb.gpGrabEndY );
+                let maxX = Math.max(EZ_EXAMPLE.ezweb.gpGrabStartX, EZ_EXAMPLE.ezweb.gpGrabEndX );
+                let maxY = Math.max(EZ_EXAMPLE.ezweb.gpGrabStartY, EZ_EXAMPLE.ezweb.gpGrabEndY );
+                
+                let finalEntValues = [];
+                for(let bn = 0; bn< entireBuffer.length;bn++){
+                    let xx = bn % SFXBUFFERSIZE;
+                    let yy = Math.floor(bn / SFXBUFFERSIZE);
+                    yy--;//???
+                    // If within the bounds ::
+                    if( xx >= minX && xx <= maxX && yy >= minY && yy <= maxY){
+                        finalEntValues.push( (entireBuffer[bn] >> 0) & 0x0000FFFF );
+                    }
 
                 }
-                //console.log(hits);
-                // addToConsole( ''+JSON.stringify(hits), { slowFade: true });
-                // console.log('SOMETHINGS:', wSOMETHIGNS)
-                // console.log('@'+currentStep)
+                
+                let sizeOfBpX = 1 + (maxX - minX);
+                let sizeOfBpY = 1 + (maxY - minY);
+                // Example usage:
+                const u32Array = new Uint32Array(finalEntValues);
+                downloadU32ArrayAsFile(u32Array, sizeOfBpX + '_' + sizeOfBpY + '_' + EZ_EXAMPLE.step + '.txt');
+
+                //console.log(finalEntValues);
+
+                EZ_EXAMPLE.ezweb.grabNextBp = false;
+
+
+                
             }
+
             //console.log(wSOMETHIGNS,'SFX Buff', entireBuffer.length)
             
         },
@@ -274,7 +327,12 @@ ALL_FULLENTS = FullEntEntries;
         config.STARTING_BUFFER = ENTIRE_LAST_LOADED;
     }
     else{
-        STIMMINGS_MAP_GEN.perlin_W_TightWinding(EZWG.SHA1, initialState, glength, attlength )
+        let NUM_OF_RANOMD_STRUCTS = 120;
+        let NUM_OF_FOLIAGE_SPOTS = 200; 
+        STIMMINGS_MAP_GEN.perlin_W_TightWinding(
+            EZWG.SHA1, initialState, glength, attlength, 
+            NUM_OF_RANOMD_STRUCTS, NUM_OF_FOLIAGE_SPOTS
+        );
         console.log("NEW MAP FINE W ME");
         config.STARTING_BUFFER = initialState;
     }

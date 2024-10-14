@@ -1,9 +1,14 @@
-var gametime: f32 = EZ_USER_INPUT[63];
+var gametime: f32 = EZ_USER_INPUT[ EZ_USER_IN_SZE - 1 ];
 
 var xPan: u32 = u32(EZ_USER_INPUT[7]);
 var yPan: u32 = u32(EZ_USER_INPUT[8]);
 
-var cZoom: f32 = EZ_USER_INPUT[9]; 
+var showAleg: f32 = abs(EZ_USER_INPUT[13]); // show a llageince or not
+
+var isDragging: u32 = u32(EZ_USER_INPUT[14]); //1 if the left mouse button is being held down
+var mouseToolMode: u32 = u32(EZ_USER_INPUT[4]); // 1= jut selecting, 3, is placing
+
+var cZoom: f32 = abs(EZ_USER_INPUT[9]); 
 // Wrap around for ZOOM in fact...
 var totalrgbs: f32 = cZoom * cZoom;
 var cZumU: u32 = u32( cZoom );
@@ -85,6 +90,13 @@ var cellCols: array<vec3<f32>, 16> = array<vec3<f32>, 16>(
     vec3<f32>(0.3, 0.3, 0.3)   // Dark Gray 
 );
 
+var teamColsHighlts: array<vec3<f32>, 5> = array<vec3<f32>, 5>(
+    vec3<f32>(1.0, 1.0, 1.0),  // White
+    vec3<f32>(0.0, 0.0, 1.0),  // Blue
+    vec3<f32>(1.0, 0.0, 0.0),  // Red
+    vec3<f32>(0.0, 1.0, 0.0),  // Green
+    vec3<f32>(1.0, 1.0, 0.0)  // Yellow 
+);
 
 
 
@@ -153,14 +165,29 @@ loop{
     let SLOT_0 = EZ_STATE_IN[ EZ_CELL_IND + 0u * EZ_TOTAL_CELLS]; 
     let entityType = SLOT_0 & 0x0000FFFF;
     var teamNumber: u32 = (SLOT_0 >> 16) & 0x0000FFFF;
+    var cpuHook: u32 =  (teamNumber >> 8 ) & 0x0000000F;
+    var snapExps: u32 = (teamNumber >> 12) & 0x0000000F;
+    teamNumber = (teamNumber >> 0) & 0x000000FF;
     //teamNumber = teamNumber + EZX * 12u + EZY * 27u;
     var counter: u32 = u32(gametime) + EZX * 1252u + EZY * 1787u;
+    var counteSr: u32 = u32(gametime);
 
     var ENT_LOOKED = EZ_STORAGE[ 1u + ent_start + (entityType * ent_chunk) ];
+    var ALLOWED_ORIENT = EZ_STORAGE[ 2u + ent_start + (entityType * ent_chunk) ];
+    var SYNCEDANIM = (ALLOWED_ORIENT >> 16) & 0x2;
+    var WINDANIM =   (ALLOWED_ORIENT >> 16) & 0x4;
+    ALLOWED_ORIENT = (ALLOWED_ORIENT >> 24) & 0x000000FF;
 
+    var badPoints = EZ_STATE_IN[ EZ_CELL_IND + 2u * EZ_TOTAL_CELLS];
+    badPoints = (badPoints >> 16) & 0x0000FFFF;
+    var trans1Popints = EZ_STATE_IN[ EZ_CELL_IND + 3u * EZ_TOTAL_CELLS];
+    trans1Popints = (trans1Popints >> 0) & 0x0000FFFF;
     var animStart: u32 = ( ENT_LOOKED >> 0 ) & 0x0000FFFF;
     var animFreq: u32 =  ( ENT_LOOKED >> 16 ) & 0x0000FFFF;
     var animSize: u32 = ( animFreq >> 8 ) & 0x000000FF;
+    var animOneWay: u32 = animSize & 128;
+    animSize = animSize & 127u;
+
     animFreq = animFreq & 0x000000FF;
     var animFrame: u32 = 0;
 
@@ -175,6 +202,71 @@ loop{
     nextMove = nextMove & 0x000000FF;                 // NEXT MOVE INTENTION before splitting once again
     var nextSpawn: u32 = ((nextMove >> 4) & 0x0000000F);
     nextMove = nextMove & 0x0000000F;
+
+
+
+    // Get the min max of the input coordinattres
+    var minX = min( u32(EZ_USER_INPUT[0]),  u32(EZ_USER_INPUT[2]));
+    var maxX = max( u32(EZ_USER_INPUT[0]),  u32(EZ_USER_INPUT[2]));
+    var minY = min( u32(EZ_USER_INPUT[1]),  u32(EZ_USER_INPUT[3]));
+    var maxY = max( u32(EZ_USER_INPUT[1]),  u32(EZ_USER_INPUT[3]));
+
+    var insideX = 0;
+    var insideY = 0;
+
+    // Wrap track is smaller               ( wraped a round the edge)
+    if( (EZ_CELLS_ACROSS_X-maxX)+minX < maxX-minX ){
+        if(EZX >= maxX || EZX <= minX){
+            insideX  = 1;
+        }
+        else{
+            insideX = 0;
+        }
+    }
+    // Normal track is smaller
+    else{ 
+        if(EZX >= minX && EZX <= maxX){
+            insideX  = 1;
+        }
+        else{
+            insideX = 0;
+        }
+    }
+
+    // Wrap track is smaller
+    if( (EZ_CELLS_ACROSS_Y-maxY)+minY < maxY-minY ){
+        if(EZY >= maxY || EZY <= minY){
+            insideY  = 1;
+        }
+        else{
+            insideY = 0;
+        }
+    }
+    // Normal track is smaller
+    else{ 
+        if(EZY >= minY && EZY <= maxY){
+            insideY  = 1;
+        }
+        else{
+            insideY = 0;
+        }
+    }
+    
+
+    var softHighlight: u32 = 0;
+    // Mouse is being dragged
+    if( isDragging == 1u ){
+
+        // Cell is inside and just hihglgihting
+        if( insideX == 1 && insideY==1 ){
+            softHighlight = 1u;
+        }
+    }
+
+
+
+
+
     
 
 
@@ -234,19 +326,104 @@ loop{
     var thisPixBg: u32 = 0;
     if (entityType > 0u) {
 
-        animFrame = animStart + ((counter/animFreq) % animSize);
+        if( animOneWay > 0 ){ 
+            animFrame = animStart + (( (trans1Popints)/(animFreq+1)) % animSize);// WAS badPoints
+        }
+        else{
+            // DO SYNCED
+            if( SYNCEDANIM > 0 ){   // if true dont randomize animation playback (syncup is required)
+                animFrame = animStart + ((counteSr/animFreq) % animSize); 
+            }
+            else{
+                // DO WIND
+                if( WINDANIM > 0 ){
+                    // Simulate gust using pseudo-randomness based on (x, y) and time
+                    let windEffect = sin(f32(EZX) * 0.1f + gametime * 0.05f) + cos(f32(EZY) * 0.1f + gametime * 0.05f);
 
-        var colorVec = EZ_STORAGE[(anim_chunk * (animFrame)) + (cmprsX) + (cmprsY)*sprt_size];
+                    // Apply pseudo-random effect to make the wind feel less uniform
+                    let gustEffect = windEffect + pseudoRandom(f32(EZX), f32(EZY), gametime * 0.01f);
+
+                    // Use gustEffect to determine the animation frame
+                    //let frame = (gustEffect * f32(animSize)) % animSize; 
+                    //animFrame = animStart + ((counter/animFreq) % animSize);
+
+                    animFrame = animStart + u32(gustEffect * f32(animSize)) % animSize; 
+                }
+                // JUST NORMAL CUCLE
+                else{
+                    animFrame = animStart + ((counter/animFreq) % animSize);
+                } 
+            }
+            
+        }
+
+        var colorVec = 0u;
+        // SPRITE ORIENTATION
+        if( ((ALLOWED_ORIENT >> cpuHook ) & 1) > 0 ){ 
+
+            if( cpuHook==5 ){//5<- face left //3<- right  //1<-up   //7<- GOING DOWN
+                colorVec = EZ_STORAGE[(anim_chunk * (animFrame)) + (sprt_size-cmprsX-1) + (cmprsY)*sprt_size];
+            }
+            else if( cpuHook==7 ){ // should face up 
+                colorVec = EZ_STORAGE[(anim_chunk * (animFrame)) + (sprt_size-cmprsY-1) + (cmprsX)*sprt_size];
+            }
+            else if( cpuHook==1 ){ // 7 goin DOWN
+                colorVec = EZ_STORAGE[(anim_chunk * (animFrame)) + (cmprsY) + (cmprsX)*sprt_size];
+            }
+            else {// 3 face right (classic)  (DEFAULT ORITIENATION, IS SPRITES ARE FACING RIGHT)
+                // DEFAULT ORIENTATION
+                colorVec = EZ_STORAGE[(anim_chunk * (animFrame)) + (cmprsX) + (cmprsY)*sprt_size];
+            }
+        }
+        // DEFAULT ORIENTATION
+        else{
+            colorVec = EZ_STORAGE[(anim_chunk * (animFrame)) + (cmprsX) + (cmprsY)*sprt_size];
+        }
         var alpha: u32 = (colorVec >> 24) & 0xFF;
 
-        if( alpha > 0 ){    // TODO change to 253 and under, 254 means it needs it team colours to com through 
+        var colorFromPix: u32 = 0u;
+        if(alpha == 254 && teamNumber > 0u ){           //<--  APPLY team colour!
+            gottenR = f32(colorVec & 0xFF) / 255.0;
+            gottenR = gottenR + (teamColsHighlts[ teamNumber ].x - gottenR) * 0.59f;
+            gottenG = f32((colorVec >> 8) & 0xFF) / 255.0;
+            gottenG = gottenG + (teamColsHighlts[ teamNumber ].y - gottenG) * 0.59f;
+            gottenB = f32((colorVec >> 16) & 0xFF) / 255.0;
+            gottenB = gottenB + (teamColsHighlts[ teamNumber ].z - gottenB) * 0.59f;
+            colorFromPix = 1;
+        }
+        else if( alpha > 0 ){    // TODO change to 253 and under, 254 means it needs it team colours to com through 
             gottenR = f32(colorVec & 0xFF) / 255.0;
             gottenG = f32((colorVec >> 8) & 0xFF) / 255.0;
             gottenB = f32((colorVec >> 16) & 0xFF) / 255.0;
+            colorFromPix = 1;
         }
         else{
             thisPixBg = 1;
         }
+
+
+        if(softHighlight == 1 && colorFromPix == 1){
+            
+            // Using for selection
+            if(  mouseToolMode == 1 ){
+                // Just draggin the selectino box over entity 
+                if( teamNumber > 0u){
+                    gottenR = gottenR + (teamColsHighlts[ teamNumber ].x-gottenR)*0.3 + sin(gametime/3 + f32(teamNumber*1193u*teamNumber))*((teamColsHighlts[ teamNumber ].x-gottenR)*0.1);
+                    gottenG = gottenG + (teamColsHighlts[ teamNumber ].y-gottenG)*0.3 + sin(gametime/3 + f32(teamNumber*1193u*teamNumber))*((teamColsHighlts[ teamNumber ].y-gottenG)*0.1);
+                    gottenB = gottenB + (teamColsHighlts[ teamNumber ].z-gottenB)*0.3 + sin(gametime/3 + f32(teamNumber*1193u*teamNumber))*((teamColsHighlts[ teamNumber ].z-gottenB)*0.1);
+                }
+                else{
+                    gottenR = gottenR + (1-gottenR)*0.041;
+                    gottenG = gottenG + (1-gottenG)*0.041;
+                    gottenB = gottenB + (1-gottenB)*0.041;
+                } 
+            }
+            // Ysing to palce stuff
+            else if( mouseToolMode == 3){ 
+
+            }
+        }
+        
         
     }
 
@@ -268,9 +445,12 @@ loop{
         // If more than one scent found here (NOT!),
         //      AND   Depending on render mode maybe dont ebeven disapyl the agoten
         if( !(scsntsCountred > 0f) || rMode == 0u ){        
-            gottenR = f32(bgPix & 0xFF) / 255.0;//0f;
-            gottenG = f32((bgPix >> 8) & 0xFF) / 255.0;
-            gottenB = f32((bgPix >> 16) & 0xFF) / 255.0;
+            // gottenR = f32(bgPix & 0xFF) / 255.0;//0f;
+            // gottenG = f32((bgPix >> 8) & 0xFF) / 255.0;
+            // gottenB = f32((bgPix >> 16) & 0xFF) / 255.0;
+            gottenR = 21f / 255f;
+            gottenG =  23f / 255f;
+            gottenB =  26f / 255f;
         }
         else {
             gottenR = gottenR / scsntsCountred;
@@ -280,15 +460,73 @@ loop{
     }
 
     // If cmd tag is not nothin - then highlight in here:
-    if( cmdIdTag > 0u ){
+    if( cmdIdTag > 0u && teamNumber > 0u ){
         // If it's the border thing
         if( cmprsX == 0 || cmprsY == 0 || cmprsX == sprt_size-1 || cmprsY == sprt_size-1 ){
-            gottenR = 1f;
-            gottenG = 1f;
-            gottenB = 1f;
+            gottenR = teamColsHighlts[ teamNumber ].x;
+            gottenG = teamColsHighlts[ teamNumber ].y;
+            gottenB = teamColsHighlts[ teamNumber ].z;
+        }
+    }
+    // If ever=present optino to show allgaeinced units is on highlgiht sumin diff:
+    // (SPARKLE HIGHLIGHT)
+    if( (showAleg > 0f && teamNumber > 0u) ){
+        if( u32(EZ_RAND(counter+cmprsY*193+cmprsX*111)*24) % 16 == 0 ){
+            gottenR = teamColsHighlts[ teamNumber ].x;
+            gottenG = teamColsHighlts[ teamNumber ].y;
+            gottenB = teamColsHighlts[ teamNumber ].z;
         }
     }
 
+    // Just draggin the selectino box over entity - this takes all the stuff  in the cell (so even if no sprites are on the cell it will chagne the col of the )
+    if(softHighlight == 1){
+        
+        // Hihgliting stuff
+        if( mouseToolMode == 1){
+            if( teamNumber > 0u){
+                gottenR = gottenR + (teamColsHighlts[ teamNumber ].x-gottenR)*0.09;
+                gottenG = gottenG + (teamColsHighlts[ teamNumber ].y-gottenG)*0.09;
+                gottenB = gottenB + (teamColsHighlts[ teamNumber ].z-gottenB)*0.09;
+            }
+            else{
+                gottenR = gottenR + (1-gottenR)*0.041;
+                gottenG = gottenG + (1-gottenG)*0.041;
+                gottenB = gottenB + (1-gottenB)*0.041;
+            }
+        }
+        // Safe placing stuff (NON-CHEAT)
+        else if( mouseToolMode == 2){
+            if( entityType > 0u ){
+                gottenR = gottenR + (0.91-gottenR)*0.541;
+                gottenG = gottenG + (0.43-gottenG)*0.541;
+                gottenB = gottenB + (0.10-gottenB)*0.541;
+            }
+            else{ 
+                gottenR = gottenR + (0.2-gottenR)* 0.441;
+                gottenG = gottenG + (0.82-gottenG)*0.441;
+                gottenB = gottenB + (0.2-gottenB)* 0.441;
+            }
+        }
+        // Force placing stuff (CHEATS)
+        else if( mouseToolMode == 3){
+            if( entityType > 0u ){
+                gottenR = gottenR + (0-gottenR)*0.641;
+                gottenG = gottenG + (0-gottenG)*0.641;
+                gottenB = gottenB + (0-gottenB)*0.641;
+            }
+            else{ 
+                gottenR = gottenR + (1-gottenR)*0.641;
+                gottenG = gottenG + (1-gottenG)*0.641;
+                gottenB = gottenB + (1-gottenB)*0.641;
+            }
+        }
+        // About tot ake snapshoty
+        else if( mouseToolMode == 4){
+            gottenR = gottenR + (0.8-gottenR)*0.541;
+            gottenG = gottenG + (0.8-gottenG)*0.541;
+            gottenB = gottenB + (0.1-gottenB)*0.541;
+        }
+    }
 
 
 
@@ -307,6 +545,7 @@ loop{
 
     var visionValue: f32 = 0f;
     var explValue: f32 = 0f;
+    var radiValue: f32 = 0f;//radiation value
 
     // Modifier 0: Sinusoidal Wave on Red Channel
     // Creates a wave effect based on the pixel's x position and time.
@@ -319,8 +558,10 @@ loop{
  
     tempi = ((memval >> ((1%4u)*8u)) & 0x000000FF);
     explValue = f32( tempi );
+    tempi = ((memval >> ((3%4u)*8u)) & 0x000000FF);
+    radiValue = f32( tempi );
     if (tempi > 0u) {
-        // gottenG += cos(f32(gametime) * 0.05) * (f32(tempi) / 255.0);
+        // gottenB += cos(f32(gametime) * 0.05) * (f32(tempi) / 255.0);
     }
  
     let noise = fract(sin(dot(vec2<f32>(f32(cmprsX), f32(cmprsY)), vec2<f32>(12.9898, 78.233))) * 43758.5453);
@@ -388,6 +629,24 @@ loop{
         i = i + 1u;
     }
 
+
+
+    // Radiation
+    if( radiValue > 0f ){
+        gottenR += (gottenR - radiValue/14f)  * 0.1f;
+        gottenG += (gottenG - radiValue/45f)  * 0.1f;
+        gottenB += (gottenB - radiValue/243f) * 0.1f;
+    }
+
+    // Explostion
+    if( explValue > 0f ){
+        gottenR = explValue/15f;
+        gottenG = explValue/255f;
+        gottenB = explValue/255f;
+    }
+
+
+
     // If there is one positive hit line
     if( totalLineTypes > 0f && rMode > 0u ){
         gottenR = funcLineR / totalLineTypes;
@@ -404,11 +663,25 @@ loop{
         gottenG = (gottenG * visionValue);//gottenG - 
         gottenB = (gottenB * visionValue);//gottenB - 
     }
+
+    // SCREENSHOT
+    if( snapExps > 0 ){
+        gottenR = 1f;
+        gottenG = 1f;
+        gottenB = 1f;
+    }
     // 24 vision or over = clear skies 
+
+
+
+    
+
+
 
     EZ_OUTPUT.red = EZ_OUTPUT.red + gottenR;
     EZ_OUTPUT.grn = EZ_OUTPUT.grn + gottenG;
     EZ_OUTPUT.blu = EZ_OUTPUT.blu + gottenB;
+
 
 
 

@@ -162,6 +162,11 @@ class EZWG {
 
         this.USER_INPUT_BUFFER_SIZE = 8*8;
 
+        this.MULTIPLAYER_MODE = false;  //<- only contorls .. idk
+        this.CHEATS_ENABLED = true;     //<- allows the '3' key to be used 
+
+        // TODO ^ go back and make this big enough for 4 players?!
+
         this.SFX_BUFFER_SIZE = 128*128;
         this.SFX_BUFFER_SIZE_LENGTH = 128;
         this.loaded = false;
@@ -220,6 +225,7 @@ class EZWG {
             this.liveInput[ 11 ] = this.slio.elevenMove;
             this.liveInput[ this.USER_INPUT_BUFFER_SIZE-1 ] = this.slio.stepLater;
         }
+        this.liveInput[4] = 1; // selection mode - SET CURRENT TOOL
 
         this.liveInpuUniform = ( new Float32Array( this.USER_INPUT_BUFFER_SIZE ) ).fill(0);
         this.lastKeyDetected = '';
@@ -230,6 +236,17 @@ class EZWG {
             isDragging: false,
             CELL_SIZE: this.CELL_SIZE,
             GRID_SIZE: this.GRID_SIZE,
+
+            liveDragX: 0,       // The last lcoatiuon of
+            liveDragY: 0,
+
+            grabNextBp: false,  // If set to true: use the next 4 variables to grab the snapshot from the Sfx buffer
+            // (The next 4 variables)
+            gpGrabStartX: 0,
+            gpGrabStartY: 0,
+            gpGrabEndX: 0,
+            gpGrabEndY: 0,
+
             dragStartX: 0,
             dragStartY: 0,
             dragEndX: 0,
@@ -836,6 +853,9 @@ class EZWG {
                     return combined;
                 }
 
+                fn pseudoRandom(x: f32, y: f32, time: f32) -> f32 {
+                    return fract(sin(dot(vec2<f32>(x, y), vec2<f32>(12.9898, 78.233))) * 43758.5453 + time);
+                }
 
                 @vertex
                 fn vertexMain(@location(0) position: vec2f) -> VertexOutput {
@@ -1388,14 +1408,29 @@ class EZWG {
 
             this.liveInput[ this.USER_INPUT_BUFFER_SIZE - 1 ] = this.step
 
+            if( this.ezweb.isDragging ){ // If not speicfic event was triggered just use the current drawing values 
+                this.liveInput[0] = this.ezweb.dragStartX;
+                this.liveInput[1] = (this.ezweb.GRID_SIZE - 1) - this.ezweb.dragStartY;
+                this.liveInput[2] = this.ezweb.liveDragX;
+                this.liveInput[3] = (this.ezweb.GRID_SIZE - 1) - this.ezweb.liveDragY;
+            }
+
+            // this.liveInput[0]
+            // this.liveInput[1]
+            // this.liveInput[2]
+            // this.liveInput[3]                    
+            // this.liveInput[4]
+            //else{} <- otherwise the new thing to do 
 
 
             // Write value of the buffer w users values 
-            this.device.queue.writeBuffer( this.userInputTempStorage, 0, this.liveInput);
-
-            this.device.queue.writeBuffer( this.userIn_uniformBuffer, 0, this.liveInpuUniform)
-
+            this.device.queue.writeBuffer( this.userInputTempStorage, 0, this.liveInput); 
+            this.device.queue.writeBuffer( this.userIn_uniformBuffer, 0, this.liveInpuUniform) 
             this.liveInput[6] = 0;
+
+            // TODO ^^ DOnt know if to remove this
+
+
 
             
 
@@ -1472,6 +1507,17 @@ class EZWG {
             this.liveInput[ 12 ] = CURRENT_TEAM_SEL;
 
             this.liveInput[ 13 ] = this.ezweb.shownerShip ? 1 : 0;
+
+            this.liveInput[ 14 ] = this.ezweb.isDragging ? 1 : 0;
+
+            this.liveInput[ 15 ] = (SEND_E_NEXT?1:0)*2 + (SEND_Q_NEXT?1:0);//(SEND_SPACE_NEXT?1:0)*4 + 
+
+            
+            // Write value of the buffer w users values 
+            // DONT KNOW WHETERHT O KEEP THIS OR NOT 
+            // this.device.queue.writeBuffer( this.userInputTempStorage, 0, this.liveInput); 
+            // this.device.queue.writeBuffer( this.userIn_uniformBuffer, 0, this.liveInpuUniform) 
+            // this.liveInput[6] = 0;
             
 
             
@@ -1545,6 +1591,10 @@ class EZWG {
 
 
             this.step++; // Increment the this.step count
+            
+            SEND_Q_NEXT = false;
+            SEND_E_NEXT = false;
+            SEND_SPACE_NEXT = false;
 
             // Start a render pass
             const pass = encoder.beginRenderPass( {
@@ -1882,6 +1932,15 @@ class EZWG {
             }
             this.ezweb.dragStartX = ((Math.floor(xx / adjCellSize) + CURRENT_PAN_X) + this.GRID_SIZE*1088) % this.GRID_SIZE;
             this.ezweb.dragStartY = ((Math.floor(yy / adjCellSize) - CURRENT_PAN_Y) + this.GRID_SIZE*1088) % this.GRID_SIZE;
+            
+            // Record for the snapshot (if any)
+            this.ezweb.gpGrabStartX = (Math.floor(xx / adjCellSize) + this.GRID_SIZE*1088) % this.GRID_SIZE;
+            this.ezweb.gpGrabStartY = (Math.floor(yy / adjCellSize) + this.GRID_SIZE*1088) % this.GRID_SIZE;
+
+            // (JUST FOR THE DRAGGING)
+            this.ezweb.liveDragX = 0+ this.ezweb.dragStartX;//((Math.floor(xx / adjCellSize) + CURRENT_PAN_X) + this.GRID_SIZE*1088) % this.GRID_SIZE;
+            this.ezweb.liveDragY = 0+ this.ezweb.dragStartY;//((Math.floor(yy / adjCellSize) - CURRENT_PAN_Y) + this.GRID_SIZE*1088) % this.GRID_SIZE;
+
         }
     }
 
@@ -1889,9 +1948,9 @@ class EZWG {
         if(this.ezweb.CELL_PAN_IS_GOING){
 
             // Add your custom logic for right-click dragging behavior here
-            const rect = this.canvas.getBoundingClientRect();
-            const xx = event.clientX - rect.left;
-            const yy = event.clientY - rect.top;
+            let rect = this.canvas.getBoundingClientRect();
+            let xx = event.clientX - rect.left;
+            let yy = event.clientY - rect.top;
 
             let adjCellSize = this.ezweb.CELL_SIZE;
             if (CURRENT_ZOOM > 4) {
@@ -1902,6 +1961,22 @@ class EZWG {
 
             this.ezweb.CELL_PAN_CURR_X = xx;//((Math.floor(xx / adjCellSize) + CURRENT_PAN_X) + this.GRID_SIZE) % this.GRID_SIZE;
             this.ezweb.CELL_PAN_CURR_Y = yy;//((Math.floor(yy / adjCellSize) - CURRENT_PAN_Y) + this.GRID_SIZE) % this.GRID_SIZE;
+        }
+        if( this.ezweb.isDragging ){
+            
+            const rect = this.canvas.getBoundingClientRect();
+            const xx = event.clientX - rect.left;
+            const yy = event.clientY - rect.top;
+            let adjCellSize = this.ezweb.CELL_SIZE;
+            if(CURRENT_ZOOM > 4 ){
+                adjCellSize *= 2;
+            }
+            else{
+                adjCellSize /= CURRENT_ZOOM;
+            }
+            this.ezweb.liveDragX = (Math.floor(xx / adjCellSize) + CURRENT_PAN_X + this.GRID_SIZE*1088) % this.GRID_SIZE;
+            this.ezweb.liveDragY = (Math.floor(yy / adjCellSize) - CURRENT_PAN_Y + this.GRID_SIZE*1088) % this.GRID_SIZE;
+            
         }
 
         // const rect = this.canvas.getBoundingClientRect();
@@ -1935,6 +2010,14 @@ class EZWG {
                 }
                 this.ezweb.dragEndX = (Math.floor(xx / adjCellSize) + CURRENT_PAN_X + this.GRID_SIZE*1088) % this.GRID_SIZE;
                 this.ezweb.dragEndY = (Math.floor(yy / adjCellSize) - CURRENT_PAN_Y + this.GRID_SIZE*1088) % this.GRID_SIZE;
+                // Record for the snapshot (if any) <- ending
+                this.ezweb.gpGrabEndX = (Math.floor(xx / adjCellSize) + this.GRID_SIZE*1088) % this.GRID_SIZE;
+                this.ezweb.gpGrabEndY = (Math.floor(yy / adjCellSize) + this.GRID_SIZE*1088) % this.GRID_SIZE;
+
+                // SCREENSHOT MODE....
+                if( CURRENT_TOOL === 4 ){
+                    this.ezweb.grabNextBp = true;
+                }
     
                 if (this.liveInput[6] < 1) {
                     this.liveInput[0] = this.ezweb.dragStartX;
@@ -1942,7 +2025,7 @@ class EZWG {
                     this.liveInput[2] = this.ezweb.dragEndX;
                     this.liveInput[3] = (this.ezweb.GRID_SIZE - 1) - this.ezweb.dragEndY;
                     
-                    this.liveInput[4] = CURRENT_TOOL ;
+                    this.liveInput[4] = CURRENT_TOOL;
                     // if( this.lastKeyDetected === '2' ){
                     //     this.liveInput[4] = 2;
                     // }

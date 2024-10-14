@@ -487,6 +487,28 @@
             color: #333;
         }
 
+        .info-graphic-image{
+            border-radius: 10px;
+        }
+
+        #flash-square {
+            position: absolute;
+            background-color: red;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            pointer-events: none;
+        }
+        
+        @keyframes flash {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        #counter{
+            font-size: 22px;
+        }
+
     </style>
 	<link rel="shortcut icon" type="image/x-icon" href="src/largeking.ico">
 </head>
@@ -528,7 +550,7 @@
     <script src="src/examples/Ex9_Stimmings2_compiled.js"></script> 
 
     <div id="dadudhud" class="overlay" onclick="enableSFX()">
-        <img src="src/mouse-click-icon-29.gif" alt="GIF">
+        <img class="info-graphic-image" src="src/mouse-click-icon-29.gif" alt="GIF">
         <p>Click anywhere to enable SFX</p>
       </div>
     
@@ -690,6 +712,51 @@
 
             reader.readAsText(file);
         }
+
+        function convertToStad( objkey ){
+            let foundd = -1;
+            let kyz = Object.keys( STAD )
+            for(let i = 0;i < kyz.length;i++){
+                if( kyz[i].slice(0,4) === 'ent_' && STAD[''+kyz[i]] === objkey ){
+                    return ''+kyz[i];
+                }
+            }
+            return 'ent_nothing';
+
+        }
+
+        // THIS one used exclusively for saving BP's
+        function downloadU32ArrayAsFile(u32Array, fileName) {
+            let nuKeyVals = [];
+            for(let i = 0;i < u32Array.length;i++){
+                nuKeyVals.push(convertToStad( u32Array[i]));
+            }
+            // Convert the u32 array to a string
+            const fileContent = nuKeyVals.join(',');  // You can change ',' to any separator you prefer
+            
+            // Create a blob from the string
+            const blob = new Blob([fileContent], { type: 'text/plain' });
+            
+            // Create a link element
+            const link = document.createElement('a');
+            
+            // Set the download attribute with a custom file name
+            link.download = fileName;
+            
+            // Create a URL for the blob and set it as the href of the link
+            link.href = URL.createObjectURL(blob);
+            
+            // Append the link to the body (this is needed for Firefox)
+            document.body.appendChild(link);
+            
+            // Programmatically click the link to trigger the download
+            link.click();
+            
+            // Remove the link from the document
+            document.body.removeChild(link);
+        }
+        
+        
     </script>
 
     <script>
@@ -926,6 +993,12 @@ var EntEntries = [
                 }
             }
 
+            document.getElementById("hud").addEventListener('wheel', function(event) {
+                // Prevents the event from propagating to the parent or background elements
+                event.stopPropagation();
+                 
+            });
+
             container.addEventListener('mousemove', (event) => {
                 const mouseX = event.clientX;
                 const mouseY = event.clientY;
@@ -1007,6 +1080,7 @@ var EntEntries = [
 
             LAST_CLICKED_ENT = Number(index);
             CURRENT_TOOL = 3;
+            EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
 
             document.getElementById('indLastClick').innerHTML = 
                 (ALL_FULLENTS[index][5] & 0x0000FFFF);
@@ -1163,6 +1237,8 @@ var EntEntries = [
 
         var CURRENT_TEAM_SEL = 0;
 
+        var MOUSE_JUST_PRESSED = false;
+
         var CURRENT_PAN_X = 0;
         var CURRENT_PAN_Y = 0;
 
@@ -1177,6 +1253,10 @@ var EntEntries = [
         var RT_LEFT = false;
         var RT_RIGHT = false;
         var RT_X = false;
+
+        var SEND_Q_NEXT = false; // for use in the activatino of highlighted entities T1,T2
+        var SEND_E_NEXT = false;
+        var SEND_SPACE_NEXT = false;
 
 
         // Right now just used for the adaptive zooming
@@ -1206,7 +1286,7 @@ var EntEntries = [
                 source.buffer = audioem;
         
                 // Apply pitch shift if needed
-                source.detune.value = pitchShift * 100;
+                source.detune.value = pitchShift * 40;
         
                 // Connect to the audio context and play
                 source.connect(audioContext.destination);
@@ -1259,6 +1339,8 @@ var EntEntries = [
         }
 
         function addToConsole(content, modifier = {}) {
+
+            
             const parent = consoleEl;//document.getElementById("parent");
             const newDiv = document.createElement("div");
             
@@ -1293,6 +1375,28 @@ var EntEntries = [
                 }, 1000); // Delay for 10 seconds before starting fade
             }
         }
+
+        function flashSquare(x, y, width, height) {
+            const square = document.getElementById('flash-square');
+            
+            // Set position and size
+            square.style.left = `${x}px`;
+            square.style.top = `${y}px`;
+            square.style.width = `${width}px`;
+            square.style.height = `${height}px`;
+
+            // Apply flashing animation and make it visible
+            square.style.animation = 'flash 0.5s ease-in-out 3'; // Flash 3 times
+            square.style.opacity = '1';
+
+            // Remove the square after a short delay (1.5 seconds in this case)
+            setTimeout(() => {
+                square.style.opacity = '0';
+                square.style.animation = ''; // Remove the animation after it's done
+            }, 1500);
+        }
+
+
         // function addToConsole(sthsing){
         //     let newEntry = document.createElement('p');
         //     newEntry.innerHTML = '' + sthsing;
@@ -1525,42 +1629,49 @@ var EntEntries = [
 
                 if( (''+event.key) === '1' ){
                     CURRENT_TOOL = 1;   // Select whatevers in the field 
+                    
+                    EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
                 }
                 else if( (''+event.key) === '2' ){
                     CURRENT_TOOL = 2;   // Deselec explicitly (remove dis TODO)
+                    EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
                 }
                 else if( (''+event.key) === '3' ){
                     CURRENT_TOOL = 3;   // Place the last ent u clicked
+                    EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
+                } 
+                else if( (''+event.key) === '4' ){
+                    CURRENT_TOOL = 4;   // Place the last ent u clicked
+                    EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
                 } 
 
                 
                 else if( (''+event.key) === 'q' || (''+event.key) === 'Q' ){
- 
-                    console.log('CURRENT_ZOOM', CURRENT_ZOOM)
-                    let adjSpeed = 1;
-                    if( CURRENT_ZOOM > 4 ){
-                        CURRENT_ZOOM = 1;
-                        adjSpeed *= 2;
-                    }
-                    else{
-                        CURRENT_ZOOM = CURRENT_ZOOM*2;
-                        adjSpeed /= CURRENT_ZOOM;
 
-                    }
-                    adjSpeed *= EZ_EXAMPLE.CELL_SIZE;
-                    console.log(window.innerWidth  ,',', adjSpeed )
-
-                    let xem = Math.floor( window.innerWidth  / adjSpeed );
-                    let yem = Math.floor( window.innerHeight / adjSpeed );
-                    //CURRENT_PAN_X -= Math.floor(xem*3.5);
-                    //CURRENT_PAN_Y += Math.floor(yem);
-                    // CURRENT_ZOOM = CURRENT_ZOOM * 2;
+                    //SEND_Q_NEXT = true;
+                    
+                    // Old code for zzoming and out and cytcling between them
+                    // let adjSpeed = 1;
+                    // if( CURRENT_ZOOM > 4 ){
+                    //     CURRENT_ZOOM = 1;
+                    //     adjSpeed *= 2;
+                    // }
+                    // else{
+                    //     CURRENT_ZOOM = CURRENT_ZOOM*2;
+                    //     adjSpeed /= CURRENT_ZOOM; 
+                    // }
+                    // adjSpeed *= EZ_EXAMPLE.CELL_SIZE; 
+                    // let xem = Math.floor( window.innerWidth  / adjSpeed );
+                    // let yem = Math.floor( window.innerHeight / adjSpeed ); 
                     
 
                 } 
                 else if( (''+event.key) === 'e' || (''+event.key) === 'E' ){
-                    CURRENT_RMODE ++;
-                    CURRENT_RMODE = CURRENT_RMODE %2 ;
+                    SEND_E_NEXT = true;
+                }
+                else if( (''+event.key) === ' ' ){
+                    SEND_SPACE_NEXT = true;
+                    SEND_Q_NEXT = true;
                 }
 
                 else if( (''+event.key) === 'w' || (''+event.key) === 'W' ){
@@ -1578,6 +1689,12 @@ var EntEntries = [
                 else if( (''+event.key) === 'x' || (''+event.key) === 'X' ){
                     RT_X = true;
                 } 
+
+                
+                else if( (''+event.key) === 't' || (''+event.key) === 'T' ){
+                    CURRENT_RMODE ++;
+                    CURRENT_RMODE = CURRENT_RMODE %2; 
+                }
 
                 // Detect arrow keys
                 if(event.key === 'ArrowUp'){
@@ -1654,6 +1771,16 @@ var EntEntries = [
             }
             else if( (''+event.key) === 'x' || (''+event.key) === 'X' ){
                 RT_X = false;
+            }
+
+            else if( (''+event.key) === 'q' || (''+event.key) === 'Q' ){
+                //SEND_Q_NEXT = false;
+            }
+            else if( (''+event.key) === 'e' || (''+event.key) === 'E' ){
+                //SEND_E_NEXT = false; 
+            }
+            else if( (''+event.key) === ' ' ){
+                //SEND_SPACE_NEXT = false; 
             }
 
         });
