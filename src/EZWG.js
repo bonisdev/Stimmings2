@@ -160,7 +160,7 @@ class EZWG {
         this.TOTAL_CELLS = this.GRID_SIZE * this.GRID_SIZE 
         this.UPDATE_INTERVAL = 55
 
-        this.USER_INPUT_BUFFER_SIZE = 8*8;
+        this.USER_INPUT_BUFFER_SIZE = 256;//8*8;
 
         this.MULTIPLAYER_MODE = false;  //<- only contorls .. idk
         this.CHEATS_ENABLED = true;     //<- allows the '3' key to be used 
@@ -169,8 +169,9 @@ class EZWG {
 
         this.SFX_BUFFER_SIZE = 128*128;
         this.SFX_BUFFER_SIZE_LENGTH = 128;
-        this.loaded = false;
+        this.loaded = false;1
         this.paused = false;
+        this.placeByTheRules = true;
 
         this.GPUName = '';
 
@@ -186,6 +187,7 @@ class EZWG {
 
         this.step = 0;
         this.suicide = false;
+        this.stepsPerDay = 1024*16;
 
         this.canvas = null;
         this.context = null
@@ -464,6 +466,11 @@ class EZWG {
         } 
         
         console.log(adapter)
+        
+        const maxBufferSize = adapter.limits.maxBufferSize;
+        const maxStorageBufferBindingSize = adapter.limits.maxStorageBufferBindingSize;
+        console.log("maxBufferSize", maxBufferSize, "maxStorageBufferBindingSize", maxStorageBufferBindingSize )
+        
 
         this.GPUName = '' + adapter.info.vendor + ' ' + adapter.info.architecture + "| max:" + adapter.limits.maxBufferSize;
 
@@ -493,7 +500,13 @@ class EZWG {
 		if (!adapter) { 
 			throw new Error("No appropriate GPUAdapter found!!!!5545445");
 		}
-		this.device = await adapter.requestDevice(); 
+		//this.device = await adapter.requestDevice();
+		this.device = await adapter.requestDevice({
+            requiredLimits: {
+                maxBufferSize: maxBufferSize,
+                maxStorageBufferBindingSize: maxStorageBufferBindingSize,
+              },
+        }); 
 		this.context = this.canvas.getContext("webgpu");
 		const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
 		this.context.configure({
@@ -857,6 +870,91 @@ class EZWG {
                     return fract(sin(dot(vec2<f32>(x, y), vec2<f32>(12.9898, 78.233))) * 43758.5453 + time);
                 }
 
+                // TRees noise 
+                fn smoothNoise(x: f32, y: f32, time: f32) -> f32 {
+                    // Use sin/cos to generate smooth variation over space and time
+                    return sin(x * 0.05 + time * 0.01) * cos(y * 0.05 + time * 0.01);
+                }
+                // Function to interpolate between values for smooth transitions
+                fn lerp(a: f32, b: f32, t: f32) -> f32 {
+                    return a + t * (b - a);
+                }
+                // Function to generate cloud density between 0 and 255
+                fn getCloudDensity(x: u32, y: u32, time: u32) -> u32 {
+                    let fx = f32(x);
+                    let fy = f32(y);
+                    let ft = f32(time);
+
+                    // Generate base noise pattern
+                    let baseNoise = smoothNoise(fx, fy, ft);
+
+                    // Simulate time-based variation and smooth transitions
+                    let noiseVariation = smoothNoise(fx * 0.5, fy * 0.5, ft * 0.2) * 0.5;
+                    let smoothTransition = lerp(baseNoise, noiseVariation, 0.5);
+
+                    // Scale the result to a 0-255 range for cloud density
+                    let cloudDensity = (smoothTransition + 1.0) * 127.5; // Shift to [0, 255] range
+
+                    return u32(clamp(cloudDensity, 0.0, 255.0));
+                }
+                // Function to apply rotation and constrain pixels within bounds
+                fn rotate_pixel(x: u32, y: u32, angle: f32, sprt_sizee: u32) -> vec2<u32> {
+                
+                    let cosf: f32 = 0.7071; // cos(45 degrees)
+                    let sinf: f32 = 0.7071; // sin(45 degrees) 
+                    let fx = f32(x) - 8.0; // Centering on (8, 8)
+                    let fy = f32(y) - 8.0;
+                    let rotatedX = fx * cosf - fy * sinf;
+                    let rotatedY = fx * sinf + fy * cosf;
+                    
+                    // Translate back to top-left corner and truncate to bounds
+                    let boundedX = max(0, min(i32(sprt_sizee) - 1, i32(rotatedX + 8.0)));
+                    let boundedY = max(0, min(i32(sprt_sizee) - 1, i32(rotatedY + 8.0)));
+                    return vec2<u32>(u32(boundedX), u32(boundedY));
+                }
+
+
+                fn visionModFromTime(timeoday: f32) -> f32 {
+                    return sin(timeoday*6.28318f) + 1f;
+                }
+                  
+                // Function to smoothly interpolate between colors based on time of day, with wraparound handling
+                fn getSunColor(timeOfDay: f32) -> vec3<f32> {
+                    if (timeOfDay < 0.125) {
+                        // Early Dawn (0.0 to 0.125): Dark night blue transitioning to light bluish hue before sunrise
+                        return mix(vec3<f32>(0.05, 0.05, 0.2), vec3<f32>(0.15, 0.2, 0.35), timeOfDay * 8.0);
+                    } else if (timeOfDay < 0.25) {
+                        // Sunrise (0.125 to 0.25): Light blue to soft yellow glow of morning light
+                        return mix(vec3<f32>(0.15, 0.2, 0.35), vec3<f32>(0.8, 0.75, 0.6), (timeOfDay - 0.125) * 8.0);
+                    } else if (timeOfDay < 0.375) {
+                        // Late Morning (0.25 to 0.375): Soft yellow to bright, warm midday tones
+                        return mix(vec3<f32>(0.8, 0.75, 0.6), vec3<f32>(0.9, 0.9, 0.75), (timeOfDay - 0.25) * 8.0);
+                    } else if (timeOfDay < 0.5) {
+                        // Midday (0.375 to 0.5): Bright warm yellowish to a subtle blue tint for a clear sky at noon
+                        return mix(vec3<f32>(0.9, 0.9, 0.75), vec3<f32>(0.7, 0.85, 1.0), (timeOfDay - 0.375) * 8.0); // Subtle blue tint
+                    } else if (timeOfDay < 0.625) {
+                        // Sunset (0.5 to 0.625): Warm reddish-orange as the sun sets
+                        return mix(vec3<f32>(0.7, 0.85, 1.0), vec3<f32>(0.9, 0.6, 0.4), (timeOfDay - 0.5) * 8.0);
+                    } else if (timeOfDay < 0.75) {
+                        // After Sunset (0.625 to 0.75): Fading into cooler pinkish tones transitioning toward twilight
+                        return mix(vec3<f32>(0.9, 0.6, 0.4), vec3<f32>(0.45, 0.25, 0.35), (timeOfDay - 0.625) * 8.0);
+                    } else if (timeOfDay < 0.875) {
+                        // Twilight (0.75 to 0.875): Fading pink to deep bluish-gray with hints of moonlight
+                        return mix(vec3<f32>(0.45, 0.25, 0.35), vec3<f32>(0.2, 0.2, 0.4), (timeOfDay - 0.75) * 8.0);
+                    } else if (timeOfDay < 1.0) {
+                        // Night (0.875 to 1.0): Cool moonlit tones, transitioning to the same as dawn for a seamless wrap
+                        return mix(vec3<f32>(0.2, 0.2, 0.4), vec3<f32>(0.05, 0.05, 0.2), (timeOfDay - 0.875) * 8.0);
+                    } else {
+                        // Midnight (Exactly 1 or 0.0): Same as 0.0 to wrap around smoothly
+                        return vec3<f32>(0.05, 0.05, 0.2); // Midnight deep blue
+                    }
+                }
+
+
+
+
+
+
                 @vertex
                 fn vertexMain(@location(0) position: vec2f) -> VertexOutput {
                     var output: VertexOutput;
@@ -913,6 +1011,9 @@ class EZWG {
                     var EZ_COMP_IND: u32 = EZ_COMP_X + EZ_COMP_Y * (EZ_TOTAL_CELLS*caWu);
 					
                     var EZ_cellParts: u32 = ${this.PARTS_ACROSS}u;
+
+                    var DAY_LEN: u32 = ${this.stepsPerDay}u;
+                    var DAY_LENf: f32 = ${this.stepsPerDay}f;
  
                     ${this.FRAGMENT_WGSL}
 					//return vec4f(fragCoord.x / grid.x, fragCoord.y / grid.y, 0.0, 1.0);
@@ -1011,16 +1112,26 @@ class EZWG {
 			}
 
             // Use any X,Y, deltaX, deltaY, attribute
+            // (NEW)
             fn EZ_CELL_VAL(x: u32, dx: i32, y: u32, dy: i32, att: u32 ) -> ${this.BUFFER_TYPE} {
+                var eex: u32 = u32(( i32(x) + dx) + ${this.CHUNK_SIZE}) % ${this.CHUNK_SIZE};
+                var eey: u32 = u32(( i32(y) + dy) + ${this.CHUNK_SIZE}) % ${this.CHUNK_SIZE};
                 var ocxx: u32 = u32( x / ${this.CHUNK_SIZE} );
                 var ocyy: u32 = u32( y / ${this.CHUNK_SIZE} );
-                var eex: u32 = u32( (i32(x)+dx+i32(${this.CHUNK_SIZE})) ) % ${this.CHUNK_SIZE};
-                var eey: u32 = u32( (i32(y)+dy+i32(${this.CHUNK_SIZE})) ) % ${this.CHUNK_SIZE};
-                eex = eex + (ocxx*${this.CHUNK_SIZE});
-                eey = eey + (ocyy*${this.CHUNK_SIZE});
+                return EZ_STATE_IN[ att * u32( grid.x * grid.y ) + EZ_helper_cellIndexChkRel( vec2( eex, eey ), ocxx, ocyy, ${this.CHUNK_SIZE}u )  ];
+            }
 
-				return EZ_STATE_IN[ (att * ${this.TOTAL_CELLS}) + eex + (eey*${this.GRID_SIZE})];//EZ_helper_cellIndexChkRel( vec2( eex, eey ), ocxx, ocyy, ${this.CHUNK_SIZE}u )  ];
-			}
+            // Use any X,Y, deltaX, deltaY, attribute
+            // (OLD)
+            // fn EZ_CELL_VAL(x: u32, dx: i32, y: u32, dy: i32, att: u32 ) -> ${this.BUFFER_TYPE} {
+            //     var ocxx: u32 = u32( x / ${this.CHUNK_SIZE} );
+            //     var ocyy: u32 = u32( y / ${this.CHUNK_SIZE} );
+            //     var eex: u32 = u32( (i32(x)+dx+i32(${this.CHUNK_SIZE})) ) % ${this.CHUNK_SIZE};
+            //     var eey: u32 = u32( (i32(y)+dy+i32(${this.CHUNK_SIZE})) ) % ${this.CHUNK_SIZE};
+            //     eex = eex + (ocxx*${this.CHUNK_SIZE});
+            //     eey = eey + (ocyy*${this.CHUNK_SIZE}); 
+			//     return EZ_STATE_IN[ (att * ${this.TOTAL_CELLS}) + eex + (eey*${this.GRID_SIZE})];//EZ_helper_cellIndexChkRel( vec2( eex, eey ), ocxx, ocyy, ${this.CHUNK_SIZE}u )  ];
+			// }
 
             // This old version still works somehow?
             // fn EZ_GET_CELL(x: u32, y: u32, att: u32, ocx: u32, ocy: u32 ) -> f32 {
@@ -1064,10 +1175,41 @@ class EZWG {
                 return value;
             }
 
+             
+
+            fn convert_to_di(dx_f32: f32, dy_f32: f32) -> u32 {
+                var gg: u32 = 0;
+                var clst: f32 = 4f;
+                var bestest: u32 = 0;
+                loop {                              // Goes 0-7 (inclusive)
+                    if gg >= 1*8 { break; }   // from 0 to TTL_INSLTS-1
+                    var di = (gg%8) + ((gg%8)/4u);        // Which way look around (0 - 7 SKIPS 4!(SELF)) 
+                    var dx = -1 + i32(di%3u);           // X Value
+                    var dy = -1 + i32(di/3u);           // Y Value
+ 
+                    var ddd: f32 = distance( vec2<f32>(dx_f32, dy_f32), vec2<f32>(f32(dx), f32(dy)) );
+                    if( ddd < clst ){
+                        clst = ddd;
+                        bestest = di;
+                    }
+
+                    gg = gg + 1u;
+
+                }
+                
+                return bestest;
+            }
+
+            
+
+
+
 
 			@compute @workgroup_size( ${this.WORKGROUP_SIZE}, ${this.WORKGROUP_SIZE} )
 			fn computeMain(@builtin(global_invocation_id) EZ_CELL: vec3u) {
                 
+                let EZ_PARTS_ACROSS_F: f32 = ${this.PARTS_ACROSS}f;
+                let caWu: u32 = ${this.PARTS_ACROSS}u;      // used for idk what yet.. came with EZ_^
             
                 const EZ_USER_IN_SZE: u32 = ${this.USER_INPUT_BUFFER_SIZE}u;
                 var EZ_SFX_SIZE: u32 = ${this.SFX_BUFFER_SIZE_LENGTH};
@@ -1481,10 +1623,10 @@ class EZWG {
             }
             
 
-            this.liveInput[ 7 ] = (CURRENT_PAN_X + this.GRID_SIZE*1188 ) % this.GRID_SIZE;
-            this.liveInput[ 8 ] = (CURRENT_PAN_Y + this.GRID_SIZE*1188 ) % this.GRID_SIZE;
+            this.liveInput[ 7 ] = ( CURRENT_PAN_X + this.GRID_SIZE*2288 ) % this.GRID_SIZE;
+            this.liveInput[ 8 ] = ( CURRENT_PAN_Y + this.GRID_SIZE*2288 ) % this.GRID_SIZE;
             this.liveInput[ 9 ] = CURRENT_ZOOM;
-            this.liveInput[ 10 ] = CURRENT_RMODE;   // rendre mode
+            this.liveInput[ 10 ] =CURRENT_RMODE;   // rendre mode
             if( RT_UP ){
                 this.liveInput[ 11 ] = 7;
             }
@@ -1510,8 +1652,9 @@ class EZWG {
 
             this.liveInput[ 14 ] = this.ezweb.isDragging ? 1 : 0;
 
-            this.liveInput[ 15 ] = (SEND_E_NEXT?1:0)*2 + (SEND_Q_NEXT?1:0);//(SEND_SPACE_NEXT?1:0)*4 + 
+            this.liveInput[ 15 ] = (SEND_SPACE_NEXT?(1 << 2):(0)) | (SEND_E_NEXT?(1 << 1):(0)) | (SEND_Q_NEXT?(1 << 0):(0));//(SEND_SPACE_NEXT?1:0)*4 + 
 
+            this.liveInput[ 16 ] = CURRENT_SESSION_PLAYER_ID;
             
             // Write value of the buffer w users values 
             // DONT KNOW WHETERHT O KEEP THIS OR NOT 
@@ -1580,6 +1723,9 @@ class EZWG {
                 //console.log("sfxBuffer:", this.sfxBuffer);
                 //console.log("cellSfxBufferForReadOnCPU:", this.cellSfxBufferForReadOnCPU);
                 //console.log("Buffer byte length:", this.sfxBuffer.byteLength);
+
+
+
                 encoder_mr_cpu_helper.copyBufferToBuffer(
                     this.sfxBuffer, 0, // Source offset
                     this.cellSfxBufferForReadOnCPU, 0, // Destination offset
@@ -1592,9 +1738,9 @@ class EZWG {
 
             this.step++; // Increment the this.step count
             
-            SEND_Q_NEXT = false;
-            SEND_E_NEXT = false;
-            SEND_SPACE_NEXT = false;
+            SEND_Q_NEXT =       false;
+            SEND_E_NEXT =       false;
+            SEND_SPACE_NEXT =   false;
 
             // Start a render pass
             const pass = encoder.beginRenderPass( {
@@ -1721,28 +1867,20 @@ class EZWG {
                     let remaped = this.cellSfxBufferForReadOnCPU.getMappedRange( 0, this.sfxValues.byteLength );
                     let arrayBufferToAnalyse = remaped.slice(0);
                     //let theUi8 = new Uint8Array( dudata );
-                    var uint32ArrayBuffer = null;
-
-                    
+                    var uint32ArrayBuffer = null; 
                     if(this.BUFFER_TYPE ==='f32'){
-                        let float32ArrayBuffer = new Float32Array(arrayBufferToAnalyse); 
-
+                        let float32ArrayBuffer = new Float32Array(arrayBufferToAnalyse);  
                         //console.log(float32ArrayBuffer)
                         //goThroughF32ValsAndReprint( float32ArrayBuffer, this );
-                        this.SFX_HANDLER_FUNC( this.step, float32ArrayBuffer )
-    
+                        this.SFX_HANDLER_FUNC( this.step, float32ArrayBuffer ) 
                     }
                     else if(this.BUFFER_TYPE === 'u32'){ 
                         uint32ArrayBuffer = new Uint32Array(arrayBufferToAnalyse);  
-                        this.SFX_HANDLER_FUNC( this.step, uint32ArrayBuffer )
-    
-                    }
-
+                        this.SFX_HANDLER_FUNC( this.step, uint32ArrayBuffer ) 
+                    } 
                     this.cellSfxBufferForReadOnCPU.unmap();
                     this.READ_SFX_BUFFER_BUSY = false;
-                    //this.READ_BUFFER_BUSY = false;  // for some reason this needs to be here part 2 otherwise cant load
-
-                    
+                    //this.READ_BUFFER_BUSY = false;  // for some reason this needs to be here part 2 otherwise cant load 
                 }).catch( error => {
                     this.READ_SFX_BUFFER_BUSY = false;
                     console.log('errrr mapping sfxxxx ', error);
@@ -2008,6 +2146,10 @@ class EZWG {
                 else{
                     adjCellSize /= CURRENT_ZOOM;
                 }
+
+                lastMouseXDRX = Math.floor(xx / adjCellSize);
+                lastMouseYDRY = Math.floor(yy / adjCellSize);
+
                 this.ezweb.dragEndX = (Math.floor(xx / adjCellSize) + CURRENT_PAN_X + this.GRID_SIZE*1088) % this.GRID_SIZE;
                 this.ezweb.dragEndY = (Math.floor(yy / adjCellSize) - CURRENT_PAN_Y + this.GRID_SIZE*1088) % this.GRID_SIZE;
                 // Record for the snapshot (if any) <- ending
@@ -2025,6 +2167,17 @@ class EZWG {
                     this.liveInput[2] = this.ezweb.dragEndX;
                     this.liveInput[3] = (this.ezweb.GRID_SIZE - 1) - this.ezweb.dragEndY;
                     
+                    if( CURRENT_TOOL === 3 || CURRENT_TOOL === 2 ){
+
+                        if( this.placeByTheRules ){
+                            CURRENT_TOOL = 2;
+                        }
+                        else{
+                            CURRENT_TOOL = 3;
+                        }
+
+                    }
+
                     this.liveInput[4] = CURRENT_TOOL;
                     // if( this.lastKeyDetected === '2' ){
                     //     this.liveInput[4] = 2;
@@ -2064,6 +2217,25 @@ class EZWG {
                     this.ezweb.LAST_CELL_X = this.ezweb.dragStartX;
                     this.ezweb.LAST_CELL_Y = this.ezweb.dragStartY;
                     //console.log('set new input:', this.liveInput)
+
+                    // IF WAS A DETAIL DRILL DOWN REQUEST
+                    if( CURRENT_TOOL === 1 ){
+                        if( this.ezweb.dragStartX === this.ezweb.dragEndX && this.ezweb.dragStartY === this.ezweb.dragEndY){
+
+                            if( GET_ENT_FROM_LAST_CLICK === false ){
+                                GET_ENT_FROM_LAST_CLICK = true;
+                                //detailRequestX = this.ezweb.dragStartX;
+                                //detailRequestY = this.ezweb.dragStartY;
+                            }
+                        }
+                        
+                    }
+
+                    // IF REQUEST WENT THROUGH - reset the tool back tio pointer:
+                    if( CURRENT_TOOL === 4 ){
+                        CURRENT_TOOL = 1;       //<- TO PREVENT DOUBLE CLICKING
+                        this.liveInput[4] = CURRENT_TOOL;
+                    }
                 }
                 else{
                     console.log('rejected input')

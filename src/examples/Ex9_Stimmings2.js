@@ -39,11 +39,6 @@ ALL_FULLENTS = FullEntEntries;
 
 
 
-    
-
-
-
-
 
 
     // Convert the images to their U32 arrays 
@@ -122,7 +117,7 @@ ALL_FULLENTS = FullEntEntries;
         CHUNKS_ACROSS: 1,
         PARTS_ACROSS: 16,            // Note* frag shader considers each part one by one pixel
 
-        CELL_VALS: 12,
+        CELL_VALS: 13,
         
             FRAG_PIXEL_MODE: true, // switches rendering logic to the fragment shader instead of
                                     // many draw calls to two traingle shape  
@@ -154,6 +149,11 @@ ALL_FULLENTS = FullEntEntries;
         },
 
         SFX_HANDLER_FUNC: ( currentStep, entireBuffer, lastBuffer ) => {
+
+
+            /// UDpat ethe UI
+            document.getElementById('timeofdayui').innerHTML = '' + EZ_EXAMPLE.stepsPerDay + ': ' + (EZ_EXAMPLE.step % EZ_EXAMPLE.stepsPerDay);
+            document.getElementById('dayscompleted').innerHTML = Math.floor(EZ_EXAMPLE.step / EZ_EXAMPLE.stepsPerDay) + ' days';
 
             //console.log(CURRENT_ZOOM)
             
@@ -216,17 +216,100 @@ ALL_FULLENTS = FullEntEntries;
                     for(let i = 0;i < songs.length;i++){
                         if(sfxvals[1+i] > 0 && songs[i].length > 0 ){
                             //addToConsole( 'sfx: '+ songs[i] + ' on ' + ALL_FULLENTS[en][0], { slowFade: true });
-                            addToConsole( 'sfx: '+ STAD[''+songs[i]][0], { slowFade: true });
+                            if( LOG_THE_SOUNDS ){
+                                addToConsole( 'sfx: '+ STAD[''+songs[i]][0], { slowFade: true });
+                            }
+                            
                             playSound( -1, STAD[''+songs[i]][2], ((EZ_EXAMPLE.step*119) % 28) );
                         }
                     }
 
                     // Conversion sound is positivbe
-                    if(sfxvals[6] > 0 ){ 
-                        addToConsole( 'sfx size: '+ STAD[''+'sfx_convert'][1], { slowFade: true });
+                    if(sfxvals[6] > 0 ){
+                        if( LOG_THE_SOUNDS ){
+                            addToConsole( 'sfx size: '+ STAD[''+'sfx_convert'][1], { slowFade: true });
+                        }
                         playSound( -1, STAD[''+'sfx_convert'][2], (EZ_EXAMPLE.step % 28) );
                     }
                 }
+            }
+
+            if( (EZ_EXAMPLE.step%EZ_EXAMPLE.stepsPerDay) === Math.floor(0.125*EZ_EXAMPLE.stepsPerDay)){
+                // Camera snapping sound 
+                addToConsole( 'another day has begun: '+ Math.floor(EZ_EXAMPLE.step/EZ_EXAMPLE.stepsPerDay), { color: 'red', noRemove: true });
+                playSound( -1, STAD[''+'sfx_banner_notif'][2], ((EZ_EXAMPLE.step*119) % 28) );
+            }
+
+            // Get the ent detail from a single click>.>
+            if( GET_ENT_FROM_LAST_CLICK ){
+                let vdam = lastMouseXDRX + (lastMouseYDRY+1) * SFXBUFFERSIZE; //SFXBUFFERSIZE - 
+
+                if( lastMouseXDRX >= EZ_EXAMPLE.SFX_BUFFER_SIZE_LENGTH-1  || lastMouseYDRY >= EZ_EXAMPLE.SFX_BUFFER_SIZE_LENGTH-1){
+                    addToConsole( 'the ' + lastMouseXDRX + ' or ' + lastMouseYDRY+ ' is bigger than ' + EZ_EXAMPLE.SFX_BUFFER_SIZE_LENGTH +
+                        '  |||| ' + Math.floor(EZ_EXAMPLE.step/EZ_EXAMPLE.stepsPerDay), { color: 'red', noRemove: true });
+                    playSound( -1, STAD[''+'sfx_metal_ting3'][2], ((EZ_EXAMPLE.step*119) % 28) );
+                }
+                else{ 
+                    let valm = entireBuffer[vdam];
+                    let entt = ( valm >> 0 ) & 0x0000FFFF;
+                    console.log( 'searching for details on entt -> : : ', entt );
+                    
+                    // TODO should be a page turning sfx 
+                    addToConsole( 'SELECTED: ' + (ALL_FULLENTS[entt][0] ), { color: 'green', noRemove: true });
+                    playSound( -1, STAD[''+'sfx_bombom'][2], ((EZ_EXAMPLE.step*119) % 28) );
+                    // Assuming you have the parent element reference
+                    const parentElement = document.getElementById('list-container'); // Change to your actual parent element ID
+
+                    // The ID number you want to find
+                    const idToFind = entt; // Change this to the actual index value you want to find 
+
+                    // Find the div with the specific entid
+                    const targetElement = parentElement.querySelector(`div[entid="${idToFind}"]`);
+                    const canvasElement = document.getElementById('canvas'); // Get the canvas element to focus
+
+                    if (targetElement) {
+
+                        if(!SHOWINGHUD){
+                            switchHud();
+                        }
+                        // Scroll the parent to center the target element
+                        const parentRect = parentElement.getBoundingClientRect();
+                        const targetRect = targetElement.getBoundingClientRect();
+                        
+                        const offset = targetRect.top - parentRect.top - (parentElement.clientHeight / 2) + (targetElement.clientHeight / 2);
+                        parentElement.scrollTop += offset;
+
+                        // Add a temporary flash to the background color without causing flickering
+                        targetElement.style.transition = "background-color 0.5s ease";
+                        targetElement.style.backgroundColor = "yellow";  // Flash color
+
+                        // Ensure the background color resets after the flash and doesn't flicker
+                        setTimeout(() => {
+                            targetElement.style.transition = ""; // Remove the transition after the flash
+                            targetElement.style.backgroundColor = ""; // Reset to original background
+                        }, 750); // 1 second flash duration
+
+                        // Simulate a click on the element
+                        //targetElement.click();
+                        handleItemClick( idToFind, null );
+                        // Reset this to 1 again because the fake click ^ sets it to 3
+                        LAST_CLICKED_ENT = idToFind;
+                        CURRENT_TOOL = 1;
+                        EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
+
+                        // Focus on the canvas element instead
+                        // if (canvasElement) {
+                        //     canvasElement.focus();
+                        // }
+
+
+                    } else {
+                        console.log('Element not found');
+                    }
+                }
+
+                
+                GET_ENT_FROM_LAST_CLICK = false;
             }
 
 
@@ -239,6 +322,8 @@ ALL_FULLENTS = FullEntEntries;
                 // Camera snapping sound 
                 addToConsole( 'sfx: '+ STAD[''+'sfx_dslr_cam'][0], { color: 'green' });
                 playSound( -1, STAD[''+'sfx_dslr_cam'][2], ((EZ_EXAMPLE.step*119) % 28) );
+
+                
 
                 // console.log("searching for: ", 
                 //     EZ_EXAMPLE.ezweb.gpGrabStartX, 
@@ -276,6 +361,9 @@ ALL_FULLENTS = FullEntEntries;
 
                 
             }
+
+
+            
 
             //console.log(wSOMETHIGNS,'SFX Buff', entireBuffer.length)
             
@@ -327,12 +415,15 @@ ALL_FULLENTS = FullEntEntries;
         config.STARTING_BUFFER = ENTIRE_LAST_LOADED;
     }
     else{
-        let NUM_OF_RANOMD_STRUCTS = 120;
-        let NUM_OF_FOLIAGE_SPOTS = 200; 
+        let NUM_OF_RANOMD_STRUCTS = 300;
+        let NUM_OF_FOLIAGE_SPOTS = 111; 
         STIMMINGS_MAP_GEN.perlin_W_TightWinding(
             EZWG.SHA1, initialState, glength, attlength, 
-            NUM_OF_RANOMD_STRUCTS, NUM_OF_FOLIAGE_SPOTS
+            NUM_OF_RANOMD_STRUCTS, 
+            NUM_OF_FOLIAGE_SPOTS
         );
+        
+        //STIMMINGS_MAP_GEN.blankNuffin( EZWG.SHA1, initialState, glength, attlength,  NUM_OF_RANOMD_STRUCTS,  NUM_OF_FOLIAGE_SPOTS );
         console.log("NEW MAP FINE W ME");
         config.STARTING_BUFFER = initialState;
     }
@@ -349,6 +440,7 @@ ALL_FULLENTS = FullEntEntries;
         INCOMING_CHUNKS = -1;
         INCOMING_CHNK_SIZE = -1;
         document.getElementById('putseedhere').innerHTML = '-*unknwon*- (loaded)';
+
         //tried -1, -1  tried +1 , +1, tried 0, 0 
         // Intital set the default runner to this // TODO it's not perfect... some thing is off by one...........
         //........................................................................................
@@ -371,7 +463,19 @@ ALL_FULLENTS = FullEntEntries;
         // Intital set the default runner to this
         EZ_EXAMPLE = new EZWG( config );
     }
+
+
+
+    // TODO use this:: 
+    // CONVENEINCE Cmarea mvoer:
+    EZ_EXAMPLE.ezweb.CELL_FLOAT_X = Math.floor( EZ_EXAMPLE.GRID_SIZE / 2 ) - Math.floor( window.innerWidth / 16 / 6);//EZ_EXAMPLE.render_canv_w / 16)
+    EZ_EXAMPLE.ezweb.CELL_FLOAT_Y = Math.floor( EZ_EXAMPLE.GRID_SIZE / 2 ) + Math.floor( window.innerHeight / 16 / 2) + 1;
+
     
+    //  TODO make sure the CURRENT_SESION_PLAYER ID IS SET....
+    document.getElementById('thisSessionsTeam').innerHTML = `<p>team session: <span style="color: rgb(23, 200, 230);">${CURRENT_SESSION_PLAYER_ID}</span></p>`;
+    
+    //updateGamepadDropdown();
 
 
     PRINT_OUT_NEXT_RUN = true;// TODO debgu fmreove for the detmeriensitic loading glitch

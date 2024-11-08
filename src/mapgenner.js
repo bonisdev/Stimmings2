@@ -242,17 +242,7 @@ STIMMINGS_MAP_GEN.get4DCubeArray = function( canvas, dbEntry ){
     
  
 };
- 
-
-STIMMINGS_MAP_GEN.resFromDB = function( wr, x, y, resInd ){
-    let resEntry = wr.SMETA.res_misc_meta[ resInd ];
-
-    wr.stateTensor[0][x][y] = resEntry.ent;
-    wr.stateTensor[1][x][y] = resEntry.m0;
-    wr.stateTensor[2][x][y] = resEntry.m1;
-    wr.stateTensor[3][x][y] = resEntry.m2;
-
-};
+  
 
 
 
@@ -276,8 +266,21 @@ STIMMINGS_MAP_GEN.randFrom = function( seed ){
  
 
 STIMMINGS_MAP_GEN.createEntity = function( entType, initialState, glength, attlength, xx, yy, teamm ){
-                                                                                                                                                        //F             F                       FF              FFFF
-    initialState[ (0*attlength) + (xx*glength) + yy ] = EZWG.createPackedU32_16( EZWG.createPackedU16_8(EZWG.createPackedU8(0, 4), teamm), entType );  //SNAPSHOThighlit, cpuHookLastOrientation,  TEAM #,   TYPE of entity wall
+
+    // DO NOT ALLOW nothing entities to have a team assigned to them
+    // (not TOO important because the shader is hard coded to remove team from "0" entitites)
+    if( entType < 1 ){
+        teamm = 0;
+    }
+    let entEntry = FullEntEntries[entType];
+    if((entEntry[4] & PHYS.PHYSICS_ALLEGIANCED) > 0){
+
+    }
+    else{
+        teamm = 0;
+    }
+                                                                                                                                                        // F             F                       FF              FFFF
+    initialState[ (0*attlength) + (xx*glength) + yy ] = EZWG.createPackedU32_16( EZWG.createPackedU16_8(EZWG.createPackedU8(0, 4), teamm), entType );   // SNAPSHOThighlit, cpuHookLastOrientation,  TEAM #,   TYPE of entity wall
     initialState[ (1*attlength) + (xx*glength) + yy ] =                 
                             EZWG.createPackedU32( 0, 0, 121, EZWG.createPackedU8( 0, 4 ) );//lastCmdDetail, hiLiteTag, random prio, next movement direction
                             // (1-4) nextSpawn,   0-7 nextMove (4=stationary)
@@ -301,6 +304,9 @@ STIMMINGS_MAP_GEN.createEntity = function( entType, initialState, glength, attle
         EZWG.createPackedU32_4( 0,0,0,0,   0,0,0,0 );
     initialState[ (11*attlength) + (xx*glength) + yy ] =     // Function values
         EZWG.createPackedU32_4( 0,0,0,0,   0,0,0,0 );
+        
+    initialState[ (12*attlength) + (xx*glength) + yy ] =     // Light values
+        EZWG.createPackedU32( 0, 0, 0, 0);
         
     // initialState[ (12*attlength) + (xx*glength) + yy ] =     // Atmosphere values
     //     EZWG.createPackedU32_4( 0,0,0,0,   0,0,0,0 );
@@ -332,6 +338,9 @@ STIMMINGS_MAP_GEN.createTC_5= function( initialState, glength, attlength, xx, yy
         EZWG.createPackedU32_4( 0,0,0,0,   0,0,0,0 );
     initialState[ (11*attlength) + (xx*glength) + yy ] =     // Function values
         EZWG.createPackedU32_4( 0,0,0,0,   0,0,0,0 );
+        
+    initialState[ (12*attlength) + (xx*glength) + yy ] =     // Light values
+        EZWG.createPackedU32( 0, 0, 0, 0);
 
 };
 STIMMINGS_MAP_GEN.createOrb= function( initialState, glength, attlength, xx, yy, teamm, orbVal ){
@@ -360,6 +369,9 @@ STIMMINGS_MAP_GEN.createOrb= function( initialState, glength, attlength, xx, yy,
         EZWG.createPackedU32_4( 0,0,0,0,   0,0,0,0 );
     initialState[ (11*attlength) + (xx*glength) + yy ] =     // Function values
         EZWG.createPackedU32_4( 0,0,0,0,   0,0,0,0 );
+        
+    initialState[ (12*attlength) + (xx*glength) + yy ] =     // Light values
+        EZWG.createPackedU32( 0, 0, 0, 0);
 
 };
 
@@ -488,6 +500,22 @@ STIMMINGS_MAP_GEN.directTheQuadrantType = function( entType, initialState, gleng
         EZWG.createPackedU32_4( 0,0,0,0,   0,0,0,0 );
     initialState[ (11*attlength) + (xx*glength) + yy ] =     // Function values
         EZWG.createPackedU32_4( 0,0,0,0,   0,0,0,0 );
+    initialState[ (12*attlength) + (xx*glength) + yy ] =     // Light values
+        EZWG.createPackedU32( 0, 0, 0, 0);
+
+}
+
+STIMMINGS_MAP_GEN.blankNuffin = function( rand, initialState, glength, attlength, NumOfRandomStructs, NumOfFoilageSpots ){ 
+    let per = new PerlinNoise( rand ); 
+
+    let valum = -0.1;
+
+    for(let xx = 0;xx < glength;xx++){
+        for(let yy = 0;yy < glength;yy++){
+
+            STIMMINGS_MAP_GEN.createEntity( 0, initialState, glength, attlength, xx, yy, 0 );
+        }
+    }
 
 }
 
@@ -542,17 +570,22 @@ STIMMINGS_MAP_GEN.perlin_W_TightWinding = function( rand, initialState, glength,
     }
 
 
-    var bepgrid = new Array(glength).fill(0).map(() => new Array(glength).fill(0));
+    var bepgrid = new Array(glength*glength).fill(0);
     // Function to check if a square fits and update the grid
-    function placeSquare(grid, x, y, width, height) {
-        const glength = grid.length;
+    function placeSquare(grid, x, y, width, height, glengeth) {
+
+        //https://youtu.be/Ry1IjOft95c?si=0olJMRl8kjA9Osk1&t=1701
+
+
+        const glength = glengeth;
 
         // Check if the area is all 0's
         for (let i = 0; i < height; i++) {
             for (let j = 0; j < width; j++) {
                 const row = (y + i) % glength;
                 const col = (x + j) % glength;
-                if (grid[row][col] !== 0) {
+                
+                if (grid[ (row*glength) + col ] !== 0) {
                     return false; // Return false if any part of the area is not 0
                 }
             }
@@ -563,7 +596,7 @@ STIMMINGS_MAP_GEN.perlin_W_TightWinding = function( rand, initialState, glength,
             for (let j = 0; j < width; j++) {
                 const row = (y + i) % glength;
                 const col = (x + j) % glength;
-                grid[row][col] = 1;
+                grid[ (row*glength) + col ] = 1;
             }
         }
 
@@ -575,37 +608,46 @@ STIMMINGS_MAP_GEN.perlin_W_TightWinding = function( rand, initialState, glength,
     let THE_TEAM_OF_STRUCTS = 0;        // NEUTRALLLL
 
 
+    // PLACE THEM 
+
+    console.log('ALLBPS', ALLBPS.length)
+    console.log(ALLBPS)
 
     // OR use this::: STIMMINGS_MAP_GEN.getBpByName()
     for(let a = 0;a < NumOfRandomStructs;a++){
-        let structId = Math.floor( ALLBPS.length * rand.random() );
 
+        // GET RANDOM BP INDEX....
+        let structId = Math.floor( ALLBPS.length * rand.random() );
+     
         let beepee = ALLBPS[ structId ];
+        if(beepee.name === 'bp_startconfig1'){
+            structId = (structId + 1 ) % ALLBPS.length;
+            beepee = ALLBPS[ structId ];
+        }
+
         let topLeftX = Math.floor( glength * rand.random());
         let topLeftY = Math.floor( glength * rand.random());
 
         let placing_starting_tc_now = false;
 
+        THE_TEAM_OF_STRUCTS = 0;
+
+        // ONLY RUN THIS BLOCK ONCE......  
         if( a === NumOfRandomStructs-1 ){
+            THE_TEAM_OF_STRUCTS = 1;            // <- adjust player ownership
             beepee = STIMMINGS_MAP_GEN.getBpByName("bp_startconfig1");
-            topLeftX = 0;
-            topLeftY = 0;
+            topLeftX = Math.floor(glength/2);//0;           //      MIDDLE OF THE MAP
+            topLeftY = Math.floor(glength/2);//0;
             placing_starting_tc_now = true;
         }
 
-        let goodToPlace = false;
-
-        // TODO this crap doesnt work at all
-        let palcementVerdict = placeSquare(bepgrid, topLeftY, topLeftX,  beepee.height, beepee.width );
-
+        // Place structures brick by brick, and check if it is conflicgin 
+        let palcementVerdict = placeSquare( bepgrid, topLeftY, topLeftX,  beepee.width, beepee.height, glength );
         if( palcementVerdict || placing_starting_tc_now ){
-
             for(let i = 0;i < beepee.data.length;i++){
                 let yy = (glength + topLeftY + ((i%beepee.width)) ) % glength;
                 let xx = (glength + topLeftX + (beepee.height-Math.floor(i/beepee.width)) ) % glength;
-    
                 STIMMINGS_MAP_GEN.createEntity( beepee.data[i], initialState, glength, attlength, xx, yy, THE_TEAM_OF_STRUCTS );
-    
             }
         }
         
@@ -635,7 +677,7 @@ STIMMINGS_MAP_GEN.perlin_W_TightWinding = function( rand, initialState, glength,
             let xx = (topLeftY + Math.floor( 23 * rand.random())) % glength;
 
             // MAKE THE PLACEMENT non- INVASIVE
-            if( (initialState[ (xx*glength) + (glength-1-yy) ] & 0x0000FFFF) == 0 ){
+            if( (initialState[ (xx*glength) + yy ] & 0x0000FFFF) == 0 ){
                 STIMMINGS_MAP_GEN.createEntity( randoFoliage[folId], initialState, glength, attlength, xx, yy, THE_TEAM_OF_STRUCTS );
             }
 

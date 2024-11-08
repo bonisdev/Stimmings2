@@ -1,4 +1,6 @@
 
+var sprt_size: u32 = ${SCHEMA_INDEX.sprite_size}u;
+var sprt_sizfe: f32= ${SCHEMA_INDEX.sprite_size}f;
 
 // 0, 1, 2, 3       SECOND half is counter
 var SLOT0: u32 = EZ_CELL_VAL( EZX, 0, EZY, 0, 0 );
@@ -23,21 +25,32 @@ var wasd_input: u32 = u32( EZ_USER_INPUT[11] );//0u;
 
 var last_team_sel: u32 = u32( EZ_USER_INPUT[12] );//0u;
 
-var q_and_e: u32 = u32(EZ_USER_INPUT[15]);  // q or E seelcted
+var q_and_e_spc: u32 = u32(EZ_USER_INPUT[15]);  // q or E seelcted
+
+var sess_team_num: u32 = u32(abs(EZ_USER_INPUT[16])); // browser session's team number
+var safePlacement: u32 = 0u;    // if eventually set to 1 then you can PLACE safely! (default is not safe)
+var sessTeamWasArrived: u32 = 0u;
+if( sess_team_num > 0u ){
+    sessTeamWasArrived = 1u;                // TODO i gotta explain this better docuenntaion maybe
+    sess_team_num = sess_team_num - 1u;
+    sess_team_num = sess_team_num % 4u;
+}
+ 
+var SP_MAX_ENEMY_SCENT: u32 = 235u;// max enemy scent for a safe
+var SP_MIN_YOUR_SCENT: u32 = 221u;// min ur own scent for safe placement
+var SP_MIN_VIS: u32 = 21u;
 
 
 var teamNumber: u32 = (SLOT0 >> 16) & 0x0000FFFF;
 var cpuHook: u32 = (teamNumber >> 8 ) & 0x0000000F;
 var snapExps:u32 = (teamNumber >> 12) & 0x0000000F;
-if(snapExps>0){snapExps=snapExps-1u;}                   // subtrract one
+if(snapExps>0){snapExps=snapExps-1u;}                   // subtrract one - it always decays no matter what) (bulb flush from a camera snapshot)
     // TODO this is not used ever really yet^^^^^^^
 teamNumber = (teamNumber >> 0) & 0x000000FF;
 
 var sfx_startingTemNum: u32 = 0u + teamNumber;          // used for sound calculating
 
 var counter: u32 = u32(EZ_USER_INPUT[ EZ_USER_IN_SZE - 1 ]);
-    // This Entity's Sepcial Random
-//tesr = tesr % 1024;
  
 
 var myPhysics = EZ_STORAGE[ 0u + ent_start + (entityType * ent_chunk) ];
@@ -84,6 +97,8 @@ var goodBadMax: u32 =   EZ_STORAGE[ 8u + ent_start + (entityType * ent_chunk) ];
 var transMax: u32 =     EZ_STORAGE[ 9u + ent_start + (entityType * ent_chunk) ];
 
 // 10u and 11u the POWER you grab from others
+        var badPower: u32 =     EZ_STORAGE[ 10u + ent_start + (entityType * ent_chunk) ];
+        badPower = (badPower >> 16) & 0x0000FFFFu;
 
 
 var goodBadAmb: u32 =   EZ_STORAGE[ 12u + ent_start + (entityType * ent_chunk) ];
@@ -143,6 +158,8 @@ loop {
 var funcScents: array<u32, 16>;
 var FUNCINDX_STRT: u32 = 10u;
 
+var LIGHTINDX_STR: u32 = 12u;
+
 i = 0u;
 loop {  
     if i >= 16 { break; } 
@@ -169,6 +186,7 @@ var potentilNxtSpwn: u32 = 0;   // this is the value of what u r gonna spawn ( i
 var nghbrTeam: u32 = 0u;
 
 var tmpsmlExp: u32 = 0u;
+//var tmpsmlForces: u32 = 0u;
 
 // FIRST MAKE ALL THE SCENT VALUE READS U NEED:
 //      AND ALSO maybe include the transofrmations here
@@ -189,20 +207,24 @@ loop {                              // Goes 0-7 (inclusive)
         iw = iw & 0x0000FFFF;
         bitind = EZ_STORAGE[ 0u + ent_start + (iw * ent_chunk) ];   // The physics profile of the nighbr (from the ent val)
         
-        if(i%4==0){ // update the spot in memory looking for the dmg value
+        if(i%4==0){ // update the u32 spot in memory looking for the dmg value
             tmpsmlExp = EZ_STORAGE[ (i/4) + 0u + dmg_start + (dmgId * dmg_chunk) ];
-        } 
+            //tmpsmlForces = EZ_STORAGE[ (i/4) + 1u + dmg_start + (dmgId * dmg_chunk) ];
+        }
+
+        var WARBOOLEAN: bool =       //-(((THIS IS THE PARTICULARS AROUND WARFARE BETWEEN TEAMS)))
+            (nghbrTeam != teamNumber && teamNumber > 0 && nghbrTeam > 0 &&      // DIFFERENT AND DECLARED TEAMS
+            ((1 << 2) & myPhysics) > 0 && ((1 << 11) & bitind) > 0 && ((1 << 2) & bitind) > 0 );
 
         // PHYSICS FLAGS TRIGGERED?!  Grab the power of the neighboruiung entity that triggered this flag
         if( (goodFrom & bitind) > 0 ){
             currGood = currGood + ((EZ_STORAGE[ 10u + ent_start + (iw * ent_chunk) ] >> 0) & 0x0000FFFF); 
         }
-        if( (badFrom & bitind) > 0 ||       //-(((THIS IS THE PARTICULARS AROUND WARFARE BETWEEN TEAMS)))
-            (nghbrTeam != teamNumber && teamNumber > 0 && nghbrTeam > 0 &&      // DIFFERENT AND DECLARED TEAMS
-            ((1 << 2) & myPhysics) > 0 && ((1 << 11) & bitind) > 0 && ((1 << 2) & bitind) > 0 ) ){  // BOTH HAVE ALLEGIANCE, AND THE ATTACKER (NGHBR) HAS WARRIOR 
+        //var badpower_used_oncehere = 
+        if( (badFrom & bitind) > 0 || WARBOOLEAN ){  // BOTH HAVE ALLEGIANCE, AND THE ATTACKER (NGHBR) HAS WARRIOR 
             currBad = currBad + ((EZ_STORAGE[ 10u + ent_start + (iw * ent_chunk) ] >> 16) & 0x0000FFFF);
         }
-        if( (t1From & bitind) > 0 ){
+        if( (t1From & bitind) > 0 || (WARBOOLEAN && badFrom == t1From) ){   //<- if same thing it's being used for TEAM v TEAM vfx too BUT ONLY IN T1 so... consdier that 
             currT1 = currT1 + ((EZ_STORAGE[ 11u + ent_start + (iw * ent_chunk) ] >> 0) & 0x0000FFFF); 
         }
         if( (t2From & bitind) > 0 ){
@@ -212,18 +234,33 @@ loop {                              // Goes 0-7 (inclusive)
         // Neutral team number conversion if allegiance capable and SUGGESTIVE
         // Check if suggestive type influences what happesn to you
         if( nghbrTeam != teamNumber && teamNumber == 0 && nghbrTeam > 0 &&    
-            ((1 << 14) & myPhysics) > 0 && ((1 << 2) & myPhysics) > 0  &&     // YOU are SUGGESTIVE and allegianced, and TEAM 0 (gaia..?)
+            ((1 << 14) & myPhysics) > 0 && ((1 << 2) & myPhysics) > 0  &&     // YOU are SUGGESTIVE and allegianced, and TEAM 0 (gaia..?)   // SUGGESTIVE IS KEY
             ((1 << 2) & bitind) > 0 ){                                        // The Attacker nghbr is also allegianced AND has a team > 0
             teamNumber = nghbrTeam;
 
         }
 
-        // ALSO WHILE YOURE JUST STILL HERE check max thresholds of the damage profile
+        // ALSO WHILE YOURE JUST STILL HERE check max thresholds of the damage profle (ACTIVATES TRANS2)
+        // If it's in this class of the transmutation foraces (going to T2), 
+        //iw = EZ_CELL_VAL( EZX, 0, EZY, 0, SLTINDX_STRT + 5u + (i/4) );
+
+        // if( ( (iw>>(8u*(i%4))) & 0x000000FF ) > ( (tmpsmlForces>>(8u*(i%4))) & 0x000000FF ) ){
+        //     trans2Yes = 1u;  // You will be 'promoted' or have ur thing fullfielled whatever this force acvinteds in u
+        // }
+
+        // ALSO WHILE YOURE JUST STILL HERE AGAIN check max thresholds of the damage profile
         iw = EZ_CELL_VAL( EZX, 0, EZY, 0, SLTINDX_STRT + 4u + (i/4) );
 
         if( ( (iw>>(8u*(i%4))) & 0x000000FF ) > ( (tmpsmlExp>>(8u*(i%4))) & 0x000000FF ) ){
-            deathYes = 1u;  // You will die...
+            if( i < 4 ){
+                deathYes = 1u;  // You will die...
+            }
+            else{
+                trans2Yes = 1u; // you get promoted by the 'radio waves'
+            }
+            
         }
+
 
         // Final checks
     }
@@ -234,65 +271,154 @@ loop {                              // Goes 0-7 (inclusive)
 }
 
 
+
+// ACCUMULATE SAFE PLACEMENT HERE tOOO
+
+// ADD CHECK FOR vision correct 
+i = EZ_CELL_VAL( EZX, 0, EZY, 0, SLTINDX_STRT + 4u );
+if( ((i >> 0u) & 0x000000FFu ) > SP_MIN_VIS ){ // MIN VISION REWUIRED TO PLACE
+    safePlacement = safePlacement + 1u;
+}
+
+//var TEAMSCNTINDX_STRT: u32 = 7u;
+i = EZ_CELL_VAL( EZX, 0, EZY, 0, 7u );// USED AS TEMP VARIABLE TO STORE THE BIG CVHESE (THE TEAM SCENTS)
+if( ((i >> 0u) & 0x000000FFu ) > SP_MIN_YOUR_SCENT && sess_team_num == 0u ){
+    safePlacement = safePlacement + 1u;
+} 
+else if( ((i >> 0u) & 0x000000FFu ) < SP_MAX_ENEMY_SCENT && sess_team_num != 0u ){
+    safePlacement = safePlacement + 1u;
+}
+
+if( ((i >> 8u) & 0x000000FFu ) > SP_MIN_YOUR_SCENT && sess_team_num == 1u ){
+    safePlacement = safePlacement + 1u;
+} 
+else if( ((i >> 8u) & 0x000000FFu ) < SP_MAX_ENEMY_SCENT && sess_team_num != 1u ){
+    safePlacement = safePlacement + 1u;
+}
+
+if( ((i >> 16u) & 0x000000FFu ) > SP_MIN_YOUR_SCENT && sess_team_num == 2u ){
+    safePlacement = safePlacement + 1u;
+} 
+else if( ((i >> 16u) & 0x000000FFu ) < SP_MAX_ENEMY_SCENT && sess_team_num != 2u ){
+    safePlacement = safePlacement + 1u;
+}
+
+if( ((i >> 24u) & 0x000000FFu ) > SP_MIN_YOUR_SCENT && sess_team_num == 3u ){
+    safePlacement = safePlacement + 1u;
+} 
+else if( ((i >> 24u) & 0x000000FFu ) < SP_MAX_ENEMY_SCENT && sess_team_num != 3u ){
+    safePlacement = safePlacement + 1u;
+}
+//currBad  being set erroneously uip here ^
+
 // AMBIENT CONTRIBUTORS
 currGood = currGood + (goodBadAmb & 0x0000FFFF);
 currBad = currBad + ((goodBadAmb >> 16) & 0x0000FFFF);
 currT1 = currT1 + (transAmb & 0x0000FFFF);
 currT2 = currT2 + ((transAmb >> 16) & 0x0000FFFF);
 
+
 //  Somehow accumulate what appens ehre
 
+// Even though there is a priority, IF there is ANY desire to transform that is not spawning - that takes precedent
+// all spawning is cacnelled if there's even a lower priority channel that wants to SELF transform (priority ober any other channel spawning)
+var atleastOneSelfTransformRequested: u32 = 0u;
 
 // 
-if( currT2 > ((transMax >> 16) & 0x0000FFFF) || (hiLiteTag > 0u && ((q_and_e%2u)==1u) && myDesire == 4u)){ // THE 'E'       //(((q_and_e>>1)&1)>1)
+if( currT2 > ((transMax >> 16) & 0x0000FFFF) || (hiLiteTag > 0u && (((q_and_e_spc>>0u)&1u)==1u) && (myDesire == 3u || myDesire == 4u))){ // THE 'E'    
     trans2Yes = 1u;
     i = ((resultMode >> 24) & 0x000000FF);
-    if( i > 0u ){                   //  **** REMINDER:L:: 0= SELF TRANSFORM, 1=SPAWN, 2=SPAWN NO TEAM
+    if( i > 0u ){                   //  **** REMINDER:L:: 0= SELF TRANSFORM, 1=SPAWN, 2=SPAWN NO TEAM, 3 = inherit velocity
         potentilNxtSpwn = 4u;   // trans2
     }
     else{
         potentilNxtSpwn = 0u;
-    }
-}
-if( currT1 > ((transMax >> 0) & 0x0000FFFF) || (hiLiteTag > 0u && (((q_and_e>>1u)%2u)==1u) && myDesire == 4u)){       // THE 'Q'      //((q_and_e&1)>1)
-    trans1Yes = 1u;
-    i = ((resultMode >> 16) & 0x000000FF);
-    if( i > 0u ){                   //  **** REMINDER:L:: 0= SELF TRANSFORM, 1=SPAWN, 2=SPAWN NO TEAM
-        potentilNxtSpwn = 3u;   // trans1
-    }
-    else{
-        potentilNxtSpwn = 0u;
-    }
-}
-if( currGood > ((goodBadMax >> 0) & 0x0000FFFF) ){// double check what you qualify for....
-    goodYes = 1u;
-    i = ((resultMode >> 0) & 0x000000FF);
-    if( i > 0u ){               //  **** REMINDER:L:: 0= SELF TRANSFORM, 1=SPAWN, 2=SPAWN NO TEAM
-        potentilNxtSpwn = 1u;   // Good 
-    }
-    else{
-        potentilNxtSpwn = 0u;                   ///<----    NOTICE** ALWAYS RESET IT IF IT FAILS oTHERWISE IT INHERITS FROM OTHERS
+        atleastOneSelfTransformRequested = 4u;
     }
 }
 
-// OVERRIDE
+// TODO idk // ONLY get in this possibility if the current one is only SPAWNING, if it' self transofrming u cant override it unless YOU are self transfomring.
+if( ( currT1 > ((transMax >> 0) & 0x0000FFFF)) || (hiLiteTag > 0u && (((q_and_e_spc>>1u)&1u)==1u) && (myDesire == 3u || myDesire == 4u) ) ){       // THE 'SPACE'   
+
+    i = ((resultMode >> 16) & 0x000000FF);
+
+    // If last channel HAS a self transform request, and YOU are just a lowly spawning result mode, deny your request -
+    //   note: but if you're just spawning then u can defintely overide it with this higher priortiy channel youre in now...
+    if(atleastOneSelfTransformRequested > 0u && i > 0u){
+
+    }
+    else{
+        // If last channel was a trans
+        trans1Yes = 1u;
+        if( i > 0u ){                   //  **** REMINDER:L:: 0= SELF TRANSFORM, 1=SPAWN, 2=SPAWN NO TEAM, 3 = inherit velocity
+            potentilNxtSpwn = 3u;   // trans1
+        }
+        else{
+            potentilNxtSpwn = 0u;
+            atleastOneSelfTransformRequested = 3u;
+        }
+    } 
+
+    
+}
+if( ( currGood > ((goodBadMax >> 0) & 0x0000FFFF) ) || (hiLiteTag > 0u && (((q_and_e_spc>>2u)&1u)==1u) && (myDesire == 3u) ) ){       // THE 'Q'  
+
+    i = ((resultMode >> 0) & 0x000000FF);
+
+    // If last channel HAS a self transform request, and YOU are just a lowly spawning result mode, deny your request -
+    //   note: but if you're just spawning then u can defintely overide it with this higher priortiy channel youre in now...
+    if( atleastOneSelfTransformRequested > 0u && i > 0u){
+
+    }
+    else{
+        goodYes = 1u;
+        if( i > 0u ){               //  **** REMINDER:L:: 0= SELF TRANSFORM, 1=SPAWN, 2=SPAWN NO TEAM, 3 = inherit velocity
+            potentilNxtSpwn = 1u;   // Good 
+        }
+        else{
+            potentilNxtSpwn = 0u;                   ///<----    NOTICE** ALWAYS RESET IT IF IT FAILS oTHERWISE IT INHERITS FROM OTHERS
+            atleastOneSelfTransformRequested = 1u;
+        }
+    }
+}
+
+// OVERRIDE  for some reason this gets triggerd after the space bar channel forcibly activates the good channel
+//      AND IT's because currBad is above 0 (did the > 0 test) so itsself immolating right after for osme rason 
 if( currBad > ((goodBadMax >> 16) & 0x0000FFFF) ){ // BAD OUTCOME trumps all other transformations
-    deathYes = 1u;
+
     i = ((resultMode >> 8) & 0x000000FF);
-    if( i > 0u ){    // just check if the result mode of this guy is to SPAWN //  **** REMINDER:L:: 0= SELF TRANSFORM, 1=SPAWN, 2=SPAWN NO TEAM
+
+    // If last channel HAS a self transform request, and YOU are just a lowly spawning result mode, deny your request -
+    //   note: but if you're just spawning then u can defintely overide it with this higher priortiy channel youre in now...
+    
+    deathYes = 1u;
+    if( i > 0u ){    // just check if the result mode of this guy is to SPAWN //  **** REMINDER:L:: 0= SELF TRANSFORM, 1=SPAWN, 2=SPAWN NO TEAM, 3 = inherit velocity
         potentilNxtSpwn = 2u;   // Bad (this one shouldnt happen?!) < - why is badness spawning outside itself
     }
     else{
         potentilNxtSpwn = 0u;
+        atleastOneSelfTransformRequested = 2u;// uncncessary this late
     }
 }
 
+// if(deathYes == 1u){
+//     var hh:u32 = 1;
+//     hh = hh - deathYes;
+//     var rrrr = 4/hh;
+//     deathYes = hh;
+// }
 
 
 //  THIS PREVENTS STOMPABLE NETITIES FROM TRANSFORMING, CAUSE IDK 
 //  HOW TO HANDLE THEIR MOVEMENT IF THEY CAN ALSO BE STEPPED ON YET.....
-if( myStepable > 0u ){  //myDesire == 0u || 
+if( myStepable > 0u ){  //myDesire == 0u || <<<<   - SAFEGUARD CODE...
     potentilNxtSpwn = 0u;
+
+    deathYes = 0u;    //   SAFEGUARD CODE - TODO this may be a propblem idk
+    goodYes = 0u;        
+    trans1Yes = 0u;
+    trans2Yes = 0u;
+
 }
  
 // // TODO add the one shot stuff here? i think?!
@@ -305,7 +431,7 @@ if( myStepable > 0u ){  //myDesire == 0u ||
 // else if( ((oneShot >> 24) & 0x000000FF) == 4u ){ 
 // }
 
-// Cap the values so they do not go to heiehr
+// Cap the values so they do not gltich wrap around
 currGood = min( currGood, 65535 );
 currBad = min( currBad, 65535 );
 currT1 = min( currT1, 65535 );
@@ -432,6 +558,7 @@ var teamSigJoos: u32 = 0u;
 
 // The natural scenrts (.2..) (slot 2 of 4 path finding scents) of the neighbour cell ur looking at
 var naturalscnts: u32 = 0u;
+var godlyscnts: u32 = 0u;
 
 // LOOKING FOR MOVES ON for DESIRED SCENTS
 
@@ -477,6 +604,7 @@ loop {
         // Check the first 4 scents // = SLTINDX_STRT = 2u      // TODO use the inScent array you already gathered here instead of calling buffer again
         bitind = EZ_CELL_VAL( EZX, -1 + i32(iw%3u), EZY, -1 + i32(iw/3u), SLTINDX_STRT + 0u );
         naturalscnts = EZ_CELL_VAL( EZX, -1 + i32(iw%3u), EZY, -1 + i32(iw/3u), SLTINDX_STRT + 1u );
+        godlyscnts = EZ_CELL_VAL( EZX, -1 + i32(iw%3u), EZY, -1 + i32(iw/3u), SLTINDX_STRT + 2u );
         //bitind    // is now the first 4 scents
         teamSigJoos = EZ_CELL_VAL( EZX, -1 + i32(iw%3u), EZY, -1 + i32(iw/3u), SLTINDX_STRT + 3u );// The last of 4 u32's -> path jooses
         
@@ -501,11 +629,14 @@ loop {
             //     currScScore = 9999u;
             // }
         }
+        else if( myDesire ==6u ){            // GO TO LEADER
+            currScScore = (bitind >> 0) & 0x000000FF;   // Score the amount of leader scent here
+        }
 
         // This mode needs real time values to trigger
         // Desire catcher fr this (has no default behaviour)
         // So it wont move w out active input
-        else if( myDesire == 4u ){
+        else if( myDesire == 4u || myDesire == 3u ){
             if( hiLiteTag > 0u ){// command id meanas youre CURRENTLY highlighted   
 
                 if( 4 != wasd_input && iw == wasd_input ){
@@ -517,7 +648,7 @@ loop {
 
         // While THIS mode uses the last input when it was highlighted
         // This one will retain its last command i guess
-        else if( myDesire == 5u ){
+        else if( myDesire == 5u){// DESIRE_AUTO
 
             // Check if you're highlighted and if yes set the cmd detail
             if( hiLiteTag > 0u && wasd_input != 4u ){        // There IS highlgiht 
@@ -529,7 +660,18 @@ loop {
                     lastCmdDetail = wasd_input + 1u;     // SO THAT u can use this when not highlgithed later 
                 }
             }
+            
+            if( lastCmdDetail > 0u && lastCmdDetail != 4+1){// you have a saved up cmd detail to run which is its last instructions it was given when highlighted
+                                    // if not then it's considered stationary , or no instruction
+                if( 4 != (lastCmdDetail-1u) && iw == lastCmdDetail - 1u ){
+                    currScScore = 255 + 1; 
+                }
+            }
 
+        }
+
+
+        else if( myDesire == 11u ){//       DESIRE_PERMANENET_DIR
             if( lastCmdDetail > 0u && lastCmdDetail != 4+1){// you have a saved up cmd detail to run which is its last instructions it was given when highlighted
                                     // if not then it's considered stationary , or no instruction
                 if( 4 != (lastCmdDetail-1u) && iw == lastCmdDetail - 1u ){
@@ -538,21 +680,45 @@ loop {
             }
         }
 
-        // Desire for WAR.....
-        else if( myDesire == 18 && teamNumber > 0u ){           //TODO dont hardcod enubmer of fteams? (4)
+        // Desire for WAR.....    OR protection (17)
+        else if( (myDesire == 18 || myDesire == 17) && teamNumber > 0u ){           //TODO dont hardcod enubmer of fteams? (4)
                                                         // > IT's teamnumber-1 to get the spot in memeory that holds the teams scent becaseut team=0 has NO SIGNATURE SCENT
             currScScore = max( currScScore, (teamSigJoos >> (((0+teamNumber+4u)%4)*8)) & 0x000000FF );
             currScScore = max( currScScore, (teamSigJoos >> (((1+teamNumber+4u)%4)*8)) & 0x000000FF );
             currScScore = max( currScScore, (teamSigJoos >> (((2+teamNumber+4u)%4)*8)) & 0x000000FF );
             currScScore = max( currScScore, (naturalscnts >> 0) & 0x000000FF );             // This is the HOSTILE GAIA SCent
+
+            // If enemy score is high enough, do that , but if not go towards the goldilocks of the leader
+            if( myDesire == 17 ){
+                if( currScScore < 235){     // enemy war scent not compelling enough
+                            // LEADER SCENT DIFFERENCE 
+                            // to fav score value
+                    var lil = ((bitind >> 0) & 0x000000FF); // get the LEADER SCENT
+                    if( lil >= 248){
+                        currScScore = 255 - (lil - 248);
+                    }
+                    else{
+                        currScScore = 255 - (247 - lil);
+                    }
+                }
+            }
         }
-        //DESIRE_CIVILIZATION
-        else if( myDesire == 19 ){
+        //DESIRE_CIVILIZATION       AGGRO RES WORKER (RES )
+        else if( myDesire == 19 || myDesire == 16 ){
             currScScore = max( currScScore, (teamSigJoos >> (((0)%4)*8)) & 0x000000FF );   // All the 4 team scents
             currScScore = max( currScScore, (teamSigJoos >> (((1)%4)*8)) & 0x000000FF );
             currScScore = max( currScScore, (teamSigJoos >> (((2)%4)*8)) & 0x000000FF );
             currScScore = max( currScScore, (teamSigJoos >> (((3)%4)*8)) & 0x000000FF );
-            currScScore = max( currScScore, (bitind >> 16) & 0x000000FF );                  //   the amount of home scent here)
+            //currScScore = max( currScScore, (bitind >> 16) & 0x000000FF );                  //   the amount of home scent here)
+            // DO NOT NEED HOME* actually
+
+            // If curr team smell is not strong enough just go towards nearest 
+            // current score
+            if( myDesire == 16 ){
+                if( currScScore < 249){     // not enough civilizaiont scent
+                    currScScore = (bitind >> 8) & 0x000000FF;   // RESOURCE value
+                }
+            }
         }
         // Chase orb and functional jooses try to match 
         // TODO somehow combine these functions with otoher desires? so some sensores pull them along 
@@ -592,6 +758,22 @@ loop {
 
 
             currScScore = max( currScScore, (naturalscnts >> 8) & 0x000000FF ); // the amount of support scent here
+        }
+        // if DESIRE_METAL <- get that good stuff
+        else if( myDesire == 12u ){
+
+
+            currScScore = max( currScScore, (naturalscnts >> 24) & 0x000000FF ); // the amount of metal scent here
+        }
+        
+        // if DESIRE_DECAY
+        else if( myDesire == 14u ){
+            currScScore = max( currScScore, (naturalscnts >> 16) & 0x000000FF ); // the amount of decay scent here
+        }
+        
+        // if DESIRE_GAIAHOME
+        else if( myDesire == 15u ){ 
+            currScScore = max( currScScore, (godlyscnts >> 0) & 0x000000FF ); // the amount of gaiahome
         }
     
 
@@ -683,7 +865,7 @@ if( entityType == 0u || myStepable > 0u ){
 
 
         hiLiteTag = (bitind >> 16) & 0x000000FF;             // <- NOTICE all thse values default bing transfree
-        lastCmdDetail = (bitind >> 24) & 0x000000FF; 
+        lastCmdDetail = (bitind >> 24) & 0x000000FF;         // will get overrideen if wanting to retain the velocity relative to the spawner
         nextSpawn = ((bitind >> 4) & 0x0000000F); 
 
         
@@ -697,7 +879,8 @@ if( entityType == 0u || myStepable > 0u ){
 
 
         myFreq = EZ_STORAGE[ 2u + ent_start + (bitind * ent_chunk) ]; // override this varilable to store
-        myFreq = (myFreq >> 24) & 0x000000FF;                       // the oritenatino profile
+        myFreq = (myFreq >> 24) & 0x000000FF;                       // THE ORIENTATION PROFILE 
+        //  ^ * NOTE THIS CAN BE OVERRIDEN BECAUSE THE ONLY OTHER TIME IS USED IS IN THE ELSE STATEMENT to this block of code.. still kinda fucked up though
         if( ((myFreq >> (8u - nextMove) ) & 1) > 0 ){   // if allowed, update the thing
             cpuHook = 8u - nextMove;
         }
@@ -705,6 +888,7 @@ if( entityType == 0u || myStepable > 0u ){
             cpuHook = parentcpuHook;// 4u;
         }
 
+        var orientationToUseIfJustSpnw = parentcpuHook;//
 
             
         // RESET IT DOWN HERE - because just need this value to update the cpuidHook for the sprite orientaiton
@@ -723,11 +907,16 @@ if( entityType == 0u || myStepable > 0u ){
             var resetTeam: u32 = EZ_STORAGE[ 16u + ent_start + (bitind * ent_chunk) ];
             resetTeam = ( (resetTeam >> ((nextSpawn)*8)) & 0x000000FF );
             
-            bitind = EZ_STORAGE[ (nextSpawn/2) + 14u + ent_start + (bitind * ent_chunk) ];  // Get the off spring 
+            bitind = EZ_STORAGE[ (nextSpawn/2) + 14u + ent_start + (bitind * ent_chunk) ];  // Get the off spring resulting entity!
             entityType = ( (bitind >> ((nextSpawn%2)*16)) & 0x0000FFFF );
-            if(entityType < 1u || resetTeam > 1u){  // (it had to atleast be 1 to trigger the 'YES' to SPAWNING last step, so if it's 2 then no team)
+
+            if(entityType < 1u || resetTeam == 2u){  // (it had to atleast be 1 to trigger the 'YES' to SPAWNING last step, so if it's 2 then no team)
                 teamNumber = 0u;    // set the team to nothing if youre spawning nothing..
-            } 
+            }
+            else if(resetTeam == 3u ){
+                lastCmdDetail = (8u-comingFromLoc) + 1u;// the +1 is how it's set for next round = 
+            }
+
 
             currGood = 0u;
             currBad = 0u;
@@ -752,7 +941,7 @@ if( entityType == 0u || myStepable > 0u ){
             currT1 = bitind & 0x0000FFFF;
             currT2 = (bitind >> 16) & 0x0000FFFF;
 
-        } 
+        }
 
 
 
@@ -784,6 +973,14 @@ if( entityType == 0u || myStepable > 0u ){
 //---------------------------------------
 //          YOU are an ENTITY    Maybe Move   vs.  Maybe Stay
 else{
+
+    
+                // used when spawning
+    var FOUR_RESULT_val: u32 = 0;// variable used to track if you need to also add BADNESS to yourself 
+    // AND POTENTIALLY EVEN CONVERT URSELF IN THE SAME FRAME BECAUSE ONLY A CERTAIN # OF ENTITIES ARE COMING
+    // DAMAGE YOURSELF WITH THE POWER LEVEL OF YOUR OWN CHANNEL IF THE RESULT TYPE IS 4
+
+
     var allowedToTransform: u32 = 9990u;
     // Good to set new move 
     //      FINAL VERDICT: ->           // For setting new movement intention
@@ -794,7 +991,7 @@ else{
     if( bestMoveInd != 4u && 
         nextMove == 4u &&
         // otherIntentionsOnGoal == 0u && <- this is factored into calcualting bestMoveInd
-        (tesr%myFreq == 0u) ){
+        (tesr%myFreq == 0u || potentilNxtSpwn > 0u) ){// OR you are spawning which shoould just happen instantly
         // "entityType" is already set
         // "teamNumber" is already set
         // "cpuHook" is already set
@@ -822,6 +1019,7 @@ else{
     else if( nextMove != 4u && (immintDestEntity & 1u) > 0 && movConflicts == 1u && uGotLowPrio == 0u ){ // Intension to move is still valid?
         
 
+
         // TODO 
         // Account for u are simply SPAWNING and not MOVING yourself
         if( nextSpawn > 0u ){
@@ -839,29 +1037,79 @@ else{
             // "hiLiteTag" is already set
             // "lastCmdDetail" is already set
 
+            var tmpPointsImpactHolder: u32 = 0;
             //Good
             if( nextSpawn == 1u ){      // subtract this guy
-                currGood = currGood - ((goodBadMax >> 0) & 0x0000FFFF);
+
+                tmpPointsImpactHolder = (((goodBadMax >> 0) & 0x0000FFFF)+1);
+                if( tmpPointsImpactHolder <= currGood){
+                    currGood = currGood - tmpPointsImpactHolder; 
+                }
+                else{
+                    currGood = 0u;
+                }
+
+                
+                 // NOTe the +1 is because the points have to GREATER THAN so if the max is 0, gotta add one so it effects the points for this channel
                 // TODO CHECK TO SEE IF OVERAGE HERE - how is guarenateed this will never be negative?
+                
+                if( 4u == ((resultMode >> 0) & 0x000000FF) ){      // If the result is 4 mark the flag
+                    FOUR_RESULT_val = 1u;
+                }
             }
             else if( nextSpawn == 2u ){
-                currBad = currBad - ((goodBadMax >> 16) & 0x0000FFFF);
+
+                tmpPointsImpactHolder = (((goodBadMax >> 16) & 0x0000FFFF)+1);
+                if( tmpPointsImpactHolder <= currBad){
+                    currBad = currBad - tmpPointsImpactHolder; 
+                }
+                else{
+                    currBad = 0u;
+                }
+ 
+
+                if( 4u == ((resultMode >> 8) & 0x000000FF) ){      // If the result is 4 mark the flag
+                    FOUR_RESULT_val = 1u;
+                }
             }
-            else if( nextSpawn == 3u ){
-                currT1 = currT1 - ((transMax >> 0) & 0x0000FFFF);
+            else if( nextSpawn == 3u ){ 
+
+                tmpPointsImpactHolder = (((transMax >> 0) & 0x0000FFFF)+1);
+                if( tmpPointsImpactHolder <= currT1){
+                    currT1 = currT1 - tmpPointsImpactHolder; 
+                }
+                else{
+                    currT1 = 0u;
+                }
+
+                if( 4u == ((resultMode >> 16) & 0x000000FF) ){      // If the result is 4 mark the flag
+                    FOUR_RESULT_val = 1u;
+                }
             }
-            else if( nextSpawn == 4u ){
-                currT2 = currT2 - ((transMax >> 16) & 0x0000FFFF);
+            else if( nextSpawn == 4u ){ 
+                
+                tmpPointsImpactHolder = (((transMax >> 16) & 0x0000FFFF)+1);
+                if( tmpPointsImpactHolder <= currT2){
+                    currT2 = currT2 - tmpPointsImpactHolder; 
+                }
+                else{
+                    currT2 = 0u;
+                }
+
+                if( 4u == ((resultMode >> 24) & 0x000000FF) ){      // If the result is 4 mark the flag
+                    FOUR_RESULT_val = 1u;
+                }
             }
             sfx_whichTrigg = nextSpawn;// for sfx tracking
 
             nextMove = 4u;
             nextSpawn = 0u;// reset this part
 
+ 
+
             
         }
         // You are not spawning anything you are moving...
-        // TODO add the -every drop here
         else{
             entityType = dropVal;//0u;
             // teamNumber = 0u;  is already set
@@ -883,7 +1131,7 @@ else{
         }
 
 
-        allowedToTransform = 0u; // Then set this flag to instill the transform
+        allowedToTransform = 0u; // no dont move or updat eur stuff because
     }
 
     // YoU have to STAY - your movment was cancelled BUT ur other stats accumualte
@@ -905,6 +1153,17 @@ else{
 
 
 
+    // Double check to see if result mode requires u to hurt self?
+    if(FOUR_RESULT_val > 0u ){// if true then we're gonna have to hurt ourself after we spawned 
+                               // AND potentially kill ourselves
+        currBad += badPower;
+        if( currBad > ((goodBadMax >> 16) & 0x0000FFFF) ){   // THRESHOLD HIT.
+            allowedToTransform = 1u;
+            deathYes = 1u;
+        }
+        //currBad = currBad - (((goodBadMax >> 16) & 0x0000FFFF)+1);
+
+    }
 
 
 
@@ -923,7 +1182,7 @@ else{
         // if( ((resultMode >> (8*(0))) & 0x000000FF) == 1u ){  
         // }
 
-    // These variables set to death when dead 
+        // These variables set to death when dead 
         // "teamNumber" is already set   // set to death w
         // hiLiteTag = 0;// in the case of death maybe set these to 0? probs not just keep it consitnece
         // lastCmdDetail = 0;// in the case of death maybe set these to 0? probs not just keep it consitnece
@@ -947,7 +1206,7 @@ else{
             currBad = 0u;
             currT1 = 0u;
             currT2 = 0u;
-            sfx_whichTrigg = 2;
+            sfx_whichTrigg = 2;     // BIG BUG OF NOV 1st.... somehow this gets hit after forcibly activating the GOOD channel the frame before.
         }
         else if( (goodYes==1 || trans1Yes==1 || trans2Yes==1) && potentilNxtSpwn < 1u ) {   // AND the spawning is 0
             // TODO carry over values if it's a result type that is just SPAWNING and not transforming,,,?
@@ -985,7 +1244,8 @@ else{
         //else{}  <- I think just kee things hwo they were
         if(entityType==0){
             teamNumber = 0u;
-            cpuHook = 0u;
+            cpuHook = 4u;
+            // snapExps is set...
             hiLiteTag = 0u;
             lastCmdDetail = 0u;
         }
@@ -1128,9 +1388,216 @@ loop {                              // Goes 0-7 (inclusive)
 }
 
 
+//  DO THE LIGHTS HERE
+//
+var finalLightsVerdict: u32 = 0;
+
+var directLightHits: f32 = 0f;
+var lightMisses: f32 = 0f;
+
+var highestIntensit: u32 = 0;
+var totallightintensity: u32 = 0;
+var accumedLight: f32 = 0f;
+var lightSrces: f32 = 0f;
+
+var lightPersuX: f32 = 2048f;  //accum<-X
+var lightPersuY: f32 = 2048f;  //accum<-Y
+
+var angleDiffusionPenalty: f32 = 1.0f;
+
+var fromSource: u32 = 0;// must be set at first
+
+
+i = 0u;
+loop {                              // Goes 0-7 (inclusive)
+    if i >= 1*8 { break; }   // from 0 to TTL_INSLTS-1
+    di = (i%8) + ((i%8)/4u);        // Which way look around (0 - 7 SKIPS 4!(SELF))
+    //bitind = i / (8);                 // Which scent mem slot to be compiling (0 - 1)
+    dx = -1 + i32(di%3u);           // X Value
+    dy = -1 + i32(di/3u);           // Y Value
+ 
+    
+    // If it's a LIGHT SORUCE (temporary) Utility scent (FORCE A)
+    fhelper = EZ_CELL_VAL( EZX, dx, EZY, dy, SLTINDX_STRT + 5u ) & 0x000000FFu;
+    // Also grab that neighbours current intensity as backing
+    tmpcrvl = EZ_CELL_VAL( EZX, dx, EZY, dy, LIGHTINDX_STR + 0u );// now contains the FFF X, FFF Y, and FF intensity
+    var ngbhrLightPwr: u32 = (tmpcrvl >> 24u) & 0x000000FFu;
+
+
+    // This is the special case of a cell (NEXT TO A SOURCE)
+    if( fhelper == 255u ){
+        
+        // Need to track the highest 
+        if( fhelper > highestIntensit ){
+            highestIntensit = fhelper; 
+
+            totallightintensity = fhelper;
+            lightPersuX = (-1f + f32((8u-di)%3u));
+            lightPersuY = (-1f + f32((8u-di)/3u));
+
+            angleDiffusionPenalty = 1f;
+        }
+        // Light strength on par 
+        else if(fhelper == highestIntensit){
+
+            totallightintensity += fhelper;
+            lightPersuX += (-1f + f32((8u-di)%3u));
+            lightPersuY += (-1f + f32((8u-di)/3u));
+            
+            //angleDiffusionPenalty =1f  <- DONT reset it here
+            //angleDiffusionPenalty = max( angleDiffusionPenalty, pwrdnesirt );
+            angleDiffusionPenalty = 1f;
+        }
+        
+        accumedLight += f32( fhelper );// FOr extra smooth diffusion
+        lightSrces += 1f;
+
+    }
+
+
+    // This is the average case of cell (NOT next to source)
+    else if( ngbhrLightPwr > 0u ) {
+        
+        // Get the neighbours light beam
+        var dirXOfNghbr: f32 = -1f + (f32(tmpcrvl & 0x00000FFFu) / 4096f)*2f;
+        var dirYOfNghbr: f32 = -1f + (f32((tmpcrvl >> 12u) & 0x00000FFFu) / 4096f)*2f;
+
+
+        var yesadd:u32 = 0u;
+        // NOW these vals are the neighbours LIGHT source (-1 to 1)
+        if( ngbhrLightPwr > highestIntensit ){
+            highestIntensit = ngbhrLightPwr;
+
+            yesadd = 1u;
+
+            // Calc here the  correct power
+            var ddem = (8u - di);
+            var ddx = f32( ddem%3u ) - 1f;           // X Value
+            var ddy = f32( ddem/3u ) - 1f;           // Y Value
+            var pwrdnesirt: f32 = distance( vec2<f32>(dirXOfNghbr, dirYOfNghbr), vec2<f32>(f32(ddx), f32(ddy)) );// distance from you really 
+            pwrdnesirt = 1f - (pwrdnesirt*0.3f);// EVALUTES TO sqrt8) ~= (2.83)
+            pwrdnesirt = max(0, pwrdnesirt);
+            pwrdnesirt = pow( pwrdnesirt, 1f);
 
 
 
+            totallightintensity = ngbhrLightPwr;
+            lightPersuX = dirXOfNghbr;//*pwrdnesirt;
+            lightPersuY = dirYOfNghbr;//*pwrdnesirt;
+            
+            angleDiffusionPenalty = pwrdnesirt;
+        }
+        // Yes on par,
+        else if( ngbhrLightPwr == highestIntensit ){
+
+            yesadd = 1u;
+
+            
+            // Calc here the  correct power
+            var ddem = (8u - di);
+            var ddx = f32( ddem%3u ) - 1f;           // X Value
+            var ddy = f32( ddem/3u ) - 1f;           // Y Value
+            var pwrdnesirt: f32 = distance( vec2<f32>(dirXOfNghbr, dirYOfNghbr), vec2<f32>(f32(ddx), f32(ddy)) );
+            // ^ WILL BE min 0 and MAX 2.83
+            pwrdnesirt = 1f - (pwrdnesirt*0.3f);// EVALUTES TO sqrt8)
+            pwrdnesirt = max(0, pwrdnesirt);
+            pwrdnesirt = pow( pwrdnesirt, 1.3f);
+
+
+
+            totallightintensity += ngbhrLightPwr; 
+            lightPersuX += dirXOfNghbr;//*pwrdnesirt;
+            lightPersuY += dirYOfNghbr;//*pwrdnesirt;
+
+            angleDiffusionPenalty = max( angleDiffusionPenalty, pwrdnesirt );
+        }
+
+
+
+
+        
+        accumedLight += f32( ngbhrLightPwr );
+        lightSrces += 1f;
+
+
+
+
+        // HAS LANDED ON ME!!!
+        // if( (8-di) == convert_to_di(dirXOfNghbr, dirYOfNghbr) ){  //<- if hits ME AND has intensity 
+        //     directLightHits += 1f;
+        //     ngbhrLightPwr *= onTargetBooster;     // NOTE*** applying this only when changing the direction vector 
+        // }
+        // else{
+        //     lightMisses += 1f;
+        // }
+
+
+ 
+
+
+    }
+
+    i = i + 1;
+
+}
+
+// TODO the reason is because the beams that are not maximum neighbours sare exclude
+
+// LAso find out why the diganols are not givin fulls trenevh
+
+
+// Use directLightHits to figure out how much DECAY to add to this BEAM
+if( highestIntensit > 0u && entityType < 1u){ // ANY movement on me.. 
+    // SUBRTTACTONE  from highest
+    if( highestIntensit > 0u ){
+        var perc: f32 = (accumedLight/255f) / lightSrces; 
+        perc = pow(perc, 4);
+        perc = 1;
+        highestIntensit = u32(       max(    0,   ( ( f32(highestIntensit) * angleDiffusionPenalty * perc) - 1f )   )          );// - 1u;
+        //highestIntensit = u32(       max(    0,   ( ( f32(highestIntensit)) -1f )    )          );// - 1u;
+        //highestIntensit = u32(   accumedLight    )
+    }
+    else{
+        highestIntensit = 0u;// idklk
+    }
+
+
+    // Pack into u32
+    var noWeightDir = vec2<f32>( lightPersuX, lightPersuY);
+    noWeightDir = normalize(noWeightDir);
+
+    var pckedX: u32 = u32((noWeightDir.x+1f)*0.5f*4096f);
+    pckedX = min(pckedX, 4095u);
+    var pckedY: u32 = u32((noWeightDir.y+1f)*0.5f*4096f);
+    pckedY = min(pckedY, 4095u);
+
+    finalLightsVerdict = (pckedX) | (pckedY << 12u) | (highestIntensit << 24u);
+}
+else{
+    finalLightsVerdict = (2047u << 12u) | (2047u);   // 0, 0, direction and 0 intensntiy
+}
+
+
+
+
+
+// IF ANY LIGHT AT ALL...
+// if( posHit > 0f ){
+//     gottenR += (1f - gottenR) * posHit;// 0f;
+//     gottenG += (0f - gottenG) * posHit;// 1f;
+//     gottenB += (0f - gottenB) * posHit;// 0f;
+// }
+
+
+
+//finalLightsVerdict = 0;//u32(posHit*255f);
+
+
+
+// **** DOUBLE CHECK TODO not sure if this is gonan effect stuff but if an entity is 0 and has a team - delete the team
+if(entityType == 0u){
+    teamNumber = 0u;//<- no team (because it's nothing u cant own nothgin?)
+}
 
 
 // 0:  SET 
@@ -1209,6 +1676,8 @@ EZ_STATE_OUT[ EZ_CELL_IND + (FUNCINDX_STRT+1u) * EZ_TOTAL_CELLS ] =
     ((funcScents[13] & 0x0000000F) << 20) |
     ((funcScents[14] & 0x0000000F) << 24) |
     ((funcScents[15] & 0x0000000F) << 28);
+
+EZ_STATE_OUT[ EZ_CELL_IND + (LIGHTINDX_STR) * EZ_TOTAL_CELLS ] = finalLightsVerdict;
 
 
 
@@ -1379,10 +1848,18 @@ else{
 
 if( EZ_USER_INPUT[6] > 0){
     if( insideX ==1 && insideY==1 ){
+
+
+        var safePlacementConfirmed: u32 = 0u;
+        if( sessTeamWasArrived == 1u && safePlacement == 5u && entityType == 0u ){
+            safePlacementConfirmed = 1u;
+        }
+
         // The case where the cell is in the bounding box of the user's click drag
-        if( EZ_USER_INPUT[4] == 1){
+        if( EZ_USER_INPUT[4] == 1 ){
             EZ_STATE_OUT[ bufferInd0 ] = myState;
-            if( teamNumber > 0u ){  // if part of an old team
+
+            if( teamNumber > 0u ){  // if part of a team <- allow the highlight tag to come throguh
                 hiLiteTag = 1u;
             }
             EZ_STATE_OUT[ bufferInd2 ] = currGood; 
@@ -1398,11 +1875,36 @@ if( EZ_USER_INPUT[6] > 0){
         //     EZ_STATE_OUT[ bufferInd2 ] = currGood; 
         //     EZ_STATE_OUT[ bufferInd3 ] = currT1; 
         // }
-        else if( EZ_USER_INPUT[4] == 3 || EZ_USER_INPUT[4] == 2){
-            var safeQuard: u32 = 0;
-            if( EZ_USER_INPUT[4] == 2 ){
-                // TODO need to check for vision, correct
+        else if( ( EZ_USER_INPUT[4] == 2 && safePlacementConfirmed == 0u) ){
+            EZ_STATE_OUT[ bufferInd0 ] = myState; 
+            EZ_STATE_OUT[ bufferInd2 ] = currGood; 
+            EZ_STATE_OUT[ bufferInd3 ] = currT1; 
+        }
+        else if( EZ_USER_INPUT[4] == 2 && safePlacementConfirmed == 1u ){
+            // IF DRAWING NOTHING - then auto set the team 
+            if( u32(EZ_USER_INPUT[5]) > 0){
+                cpuHook = 0;
+                snapExps= 0;
+                EZ_STATE_OUT[ bufferInd0 ] = u32(EZ_USER_INPUT[5]) | ( (last_team_sel & 0x000000FF) << 16 ) | ((cpuHook & 0x0000000F) << 24 ) | ((snapExps & 0x0000000F) << 28 ); // ADD FLAG IF      // Lat thing you clicked
             }
+            else{ 
+                EZ_STATE_OUT[ bufferInd0 ] = 0u; // just kille verything
+            }
+            
+            nextMove = 4u;
+            //EZ_STATE_OUT[ bufferInd1 ] = 4u;    // (stationary)
+            hiLiteTag = 0u;
+            lastCmdDetail = 0u;
+
+            // Reset the good / bad, traasm1. tams 2popinmts
+            EZ_STATE_OUT[ bufferInd2 ] = 0u;
+            EZ_STATE_OUT[ bufferInd3 ] = 0u;
+
+            // THIS CASE (SAFE PLACEMENT IS EXACT COPY OF PLACEMENT MODE 3)
+
+        }
+        else if( EZ_USER_INPUT[4] == 3){
+            
             // IF DRAWING NOTHING - then auto set the team 
             if( u32(EZ_USER_INPUT[5]) > 0){
                 cpuHook = 0;
