@@ -242,7 +242,7 @@ STIMMINGS_MAP_GEN.get4DCubeArray = function( canvas, dbEntry ){
     
  
 };
-  
+
 
 
 
@@ -404,7 +404,7 @@ STIMMINGS_MAP_GEN.quadrantTypes = [
     {
         main: STAD.ent_longgrass,        // nffin
         speck: STAD.ent_eggmcfkin,        // Minion 1
-        middle: STAD.ent_hg_miniboss,      // Mini boss,
+        middle: STAD.ent_bonbon,      // Mini boss,
         TEAM: 0
     },
     
@@ -412,7 +412,7 @@ STIMMINGS_MAP_GEN.quadrantTypes = [
     {
         main: 0,        // nffin
         speck: STAD.ent_std_wall,        // wall
-        middle: STAD.ent_mischf_worm,      // Worm
+        middle: STAD.ent_clubsandwhich,      // Worm
         TEAM: 0
     },
     
@@ -428,7 +428,7 @@ STIMMINGS_MAP_GEN.quadrantTypes = [
     {
         main: STAD.ent_darkmoss,        // nffin
         speck: STAD.ent_burger,        // wall
-        middle: STAD.ent_hg_minion,      // Worm
+        middle: STAD.ent_pancakes,      // Worm
         TEAM: 0
     },
     // Pine Trees  
@@ -456,6 +456,21 @@ STIMMINGS_MAP_GEN.quadrantTypes = [
 //         }
 //     );
 // }
+
+STIMMINGS_MAP_GEN.territoryTypes = [
+    STAD.ent_vibranttree,
+    STAD.ent_yewtree,
+    STAD.ent_longgrass,
+    STAD.ent_darkmoss,
+    STAD.ent_shortgrass,
+    STAD.ent_std_wall,
+    STAD.ent_flash_crystal_off,
+    STAD.ent_flash_crystal_on,
+    STAD.ent_blackstone,
+    STAD.ent_bee_wall,
+    STAD.ent_spooky_wall
+    
+]
 
 // QUADRANT location tracker
 STIMMINGS_MAP_GEN.directTheQuadrantType = function( entType, initialState, glength, attlength, xx, yy, chunkdindf, teamm ){
@@ -569,6 +584,155 @@ STIMMINGS_MAP_GEN.perlin_W_TightWinding = function( rand, initialState, glength,
         }
     }
 
+
+    STIMMINGS_MAP_GEN.UNIVERSAL_PLACE_STRUCTURES(rand, initialState, glength, attlength, NumOfRandomStructs, NumOfFoilageSpots );
+
+
+
+};
+
+  
+
+ 
+
+
+
+STIMMINGS_MAP_GEN.territoryPartition = function(rand, initialState, glength, attlength, NumOfRandomStructs, NumOfFoilageSpots ){
+    // Define the grid dimensions and "p" value
+    const GRID_SIZE = glength;
+    let p = 0.45; // Adjust as needed
+    let minIslandSize = 150;
+
+    var largestTerritoyIndex = 0;
+    var currLargestTerritoryCount = 0;
+
+    var currTerrSize = 0;
+
+    // Initialize the grid and connection weights
+    const grid = new Array(GRID_SIZE).fill(null).map(() => new Array(GRID_SIZE).fill(null));
+    const connections = new Array(GRID_SIZE).fill(null).map(() => new Array(GRID_SIZE).fill(null).map(() => ({
+        top: rand.random(),
+        down: rand.random(),
+        left: rand.random(),
+        right: rand.random()
+    })));
+
+    // Ensure connections are consistent between neighboring cells
+    for (let x = 0; x < GRID_SIZE; x++) {
+        for (let y = 0; y < GRID_SIZE; y++) {
+            const rightX = wrapIndex(x + 1);
+            const downY = wrapIndex(y + 1);
+
+            // Synchronize right/left connections
+            connections[x][y].right = connections[rightX][y].left;
+
+            // Synchronize down/top connections
+            connections[x][y].down = connections[x][downY].top;
+        }
+    }
+
+    // Initialize the territories array to track cell classification
+    const territories = new Array(GRID_SIZE).fill(null).map(() => new Array(GRID_SIZE).fill(null));
+    let territoryId = 0;
+    let territorySize = [];
+
+    // Function to wrap around grid indices
+    function wrapIndex(index) {
+        return (index + GRID_SIZE) % GRID_SIZE;
+    }
+
+    // Depth-first search to classify cells into territories
+    function classifyTerritory(x, y, id) {
+        const stack = [[x, y]];
+
+        while (stack.length > 0) {
+            const [cx, cy] = stack.pop();
+            if (territories[cx][cy] !== null) continue; // Skip already classified cells
+
+            // Assign the current cell to the territory
+            territories[cx][cy] = id;
+
+            // Explore neighbors if connections are below the threshold
+            if (connections[cx][cy].right < p){stack.push([wrapIndex(cx + 1), cy]); currTerrSize++;}
+            if (connections[cx][cy].down < p){ stack.push([cx, wrapIndex(cy + 1)]); currTerrSize++;}
+            if (connections[cx][cy].left < p){ stack.push([wrapIndex(cx - 1), cy]); currTerrSize++;}
+            if (connections[cx][cy].top < p){  stack.push([cx, wrapIndex(cy - 1)]); currTerrSize++;}
+        }
+    }
+
+    // Main loop to classify all cells into territories
+    for (let x = 0; x < GRID_SIZE; x++) {
+        for (let y = 0; y < GRID_SIZE; y++) {
+            if (territories[x][y] === null) {
+                classifyTerritory(x, y, territoryId);
+
+                if( currTerrSize > currLargestTerritoryCount ){
+                    currLargestTerritoryCount = currTerrSize;
+                    largestTerritoyIndex = territoryId;
+                }
+                territorySize.push(0+currTerrSize);
+                currTerrSize = 0;
+
+                territoryId++;
+            }
+        }
+    }
+
+    //console.log(`Partitioned into ${territoryId} territories.`); 
+    //// Example: Print a small section of the territories array for verification
+    //console.log(territories.slice(0, 10).map(row => row.slice(0, 10)));
+
+
+    for (let xx = 0; xx < GRID_SIZE; xx++) {
+        for (let yy = 0; yy < GRID_SIZE; yy++) {
+
+            let terr = territories[xx][yy];
+            if (territories[xx][yy] !== null) {
+                if( territorySize[terr] > minIslandSize && terr !== largestTerritoyIndex ){ // 
+                    STIMMINGS_MAP_GEN.createEntity( STIMMINGS_MAP_GEN.territoryTypes[ Math.floor( terr % STIMMINGS_MAP_GEN.territoryTypes.length ) ], initialState, glength, attlength, xx, yy, 0 );
+                
+
+                    // if( terr === largestTerritoyIndex ){ 
+                    //     STIMMINGS_MAP_GEN.createEntity( 0, initialState, glength, attlength, xx, yy, 0 );
+                    // }
+                    // // Just the normal wall (no team)
+                    // else{
+                    //     STIMMINGS_MAP_GEN.createEntity( STAD.ent_std_wall, initialState, glength, attlength, xx, yy, 0 );
+                    // }
+
+
+                }
+                else{
+                    STIMMINGS_MAP_GEN.createEntity( 0, initialState, glength, attlength, xx, yy, 0 );
+                }
+
+            }
+        }
+
+    }
+
+    STIMMINGS_MAP_GEN.UNIVERSAL_PLACE_STRUCTURES(rand, initialState, glength, attlength, NumOfRandomStructs, NumOfFoilageSpots );
+
+    // let folId = Math.floor( randoFoliage.length * rand.random() ); 
+    // let topLeftX = Math.floor( glength * rand.random());
+    // let topLeftY = Math.floor( glength * rand.random());
+ 
+    // let yy = (topLeftX + Math.floor( 23 * rand.random())) % glength;
+    // let xx = (topLeftY + Math.floor( 23 * rand.random())) % glength;
+
+    // // MAKE THE PLACEMENT non- INVASIVE
+    // if( (initialState[ (xx*glength) + yy ] & 0x0000FFFF) == 0 ){
+    //     STIMMINGS_MAP_GEN.createEntity( randoFoliage[folId], initialState, glength, attlength, xx, yy, THE_TEAM_OF_STRUCTS );
+    // } 
+
+
+};
+  
+
+
+
+
+STIMMINGS_MAP_GEN.UNIVERSAL_PLACE_STRUCTURES = function(rand, initialState, glength, attlength, NumOfRandomStructs, NumOfFoilageSpots ){
 
     var bepgrid = new Array(glength*glength).fill(0);
     // Function to check if a square fits and update the grid
@@ -686,18 +850,4 @@ STIMMINGS_MAP_GEN.perlin_W_TightWinding = function( rand, initialState, glength,
 
     }
 
-    // TODO place packs of FOLIAGE
-
-    //
-
-
-
-};
-
-  
-
- 
-
-
-
-
+}

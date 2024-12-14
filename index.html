@@ -42,7 +42,14 @@
             background-color: #1d3015d3;
             border: none;
         }
-         
+
+        .mouse-tool {
+            position: absolute;
+            pointer-events: none; /* Prevents interaction with the image */
+            user-select: none; /* Prevents text selection */
+            display: none; /* Initially hidden */
+        }
+
         
         #secretConsole {
             /*position: absolute;*/
@@ -110,6 +117,20 @@
         #openCloserThing:hover{
             background-color: #bd0918d3;
         }
+
+        #inspectorSection{
+            z-index: 56;
+            position: absolute;
+            bottom: 5px;
+            right: 5px; 
+            border-radius: 5px;
+            padding: 1px;
+            color: rgb(220, 231, 231);
+            background-color: #04572cd3;
+            border: none;
+            cursor: pointer;
+            min-width: 430px;
+        }
         @keyframes pulse {
 			0% {
 				box-shadow: 0px 0px 0px 1px rgba(165, 165, 165, 0.04),
@@ -160,6 +181,41 @@
             image-rendering: crisp-edges; /* for some browsers */
             width: 8px;  /* or the actual width of your image */
             height: 8px; /* or the actual height of your image */
+        }
+
+        
+        .tool-tip-icon-img{ 
+            image-rendering: pixelated; 
+            position: absolute;
+            pointer-events: none; /* Prevents interaction with the image */
+            user-select: none; /* Prevents text selection */ 
+        }
+        
+        .tooltip-just-img { 
+          /*   display: block;
+            z-index: 1000; Ensure it appears on top of other elements */
+        }
+
+        /*Actually displaying around */
+        .tooltip {
+            position: absolute;
+            display: none;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            pointer-events: none;
+            z-index: 1000;
+            font-size: 0.9em;
+
+            max-width: 210px;
+        }
+        .hover-target {
+            /*display: inline-block;
+            padding: 10px;
+            margin: 20px;
+            border: 1px solid #ccc;
+            cursor: pointer;*/
         }
 
 
@@ -403,6 +459,161 @@
         }
 
 
+
+
+
+
+        .profile-container { 
+            max-width: 600px; 
+            background: rgb(51, 43, 43);
+            border: 1px solid #ddd;
+            /*border-radius: 8px;*/
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .profile-section {
+            display: flex;
+            padding: 20px;
+            align-items: center;
+            min-width: 300px;
+            max-width: 300px;
+        }
+        
+        .profile-picture img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #ccc;
+        }
+        
+        .profile-description {
+            flex-grow: 1;
+            margin-left: 20px;
+            min-width: 250px;
+        }
+        
+        .profile-description h2 {
+            margin: 0;
+            font-size: 1.5em;
+            color: #ffffff;
+        }
+        
+        .profile-description p {
+            margin: 3px 0 0;
+        }
+        
+        hr {
+            border: none;
+            border-top: 1px solid #ddd;
+            margin: 0;
+        }
+
+        .prof-info-header{
+            color:rgb(255, 220, 22);
+            background-color:rgb(32, 30, 3);
+        }
+
+        .good-col{
+            color: rgb(20, 230, 20);
+        }
+        
+        .bad-col{
+            color: rgb(230, 20, 20);
+        }
+
+        .trans1-col{
+            color: rgb(20, 230, 230);
+        }
+
+        .trans2-col{
+            color: rgb(230, 20, 230);
+        }
+
+        .normal-stat-col{
+            color: rgb(255, 255, 255);
+        }
+ 
+        .vision-stat-col{
+            color: rgb(176, 181, 202);
+        }
+        
+        .expl-stat-col{
+            color: rgb(235, 148, 35);
+        }
+        
+        .elect-stat-col{
+            color: rgb(220, 241, 32);
+        }
+        
+        .radi-stat-col{
+            color: rgb(9, 218, 131);
+        }
+        
+        .res-stat-col{
+            color: rgb(77, 185, 14);
+        }
+
+        .build-amt-parent{
+            position: absolute;
+            left: -15px;
+            top: -76px;
+            width: 120px;
+            transform-origin: center; /* Pivot around the center */
+            animation: subtleSwing 4s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+        }
+
+        .build-number{
+            position: absolute;
+            left: 53px;
+            top: 36px;
+            text-align: center;
+            color: rgb(39, 19, 155);
+        }
+
+        /* Keyframes for subtle swing */
+        @keyframes subtleSwing {
+            0% {
+                transform: rotate(0deg);
+            }
+            25% {
+                transform: rotate(3deg);
+            }
+            50% {
+                transform: rotate(0deg);
+            }
+            75% {
+                transform: rotate(-3deg);
+            }
+            100% {
+                transform: rotate(0deg);
+            }
+        }
+
+        .controller-icon-adjustment{
+            
+        }
+
+        .little-pixel-icon {
+            width: auto; /* Automatically adjust width */
+            height: auto; /* Automatically adjust height */
+            transform: scale(1); /* Scale the image to 2x size */
+            transform-origin: top left; /* Anchor scaling to the top-left corner */
+            image-rendering: pixelated; /* Preserve sharp pixel edges */
+            margin-bottom: 3px;
+        }
+
+        .lesser-little-pixel-icon{
+            width: auto; /* Automatically adjust width */
+            height: auto; /* Automatically adjust height */
+            transform: scale(2); /* Scale the image to 2x size */
+            transform-origin: top left; /* Anchor scaling to the top-left corner */
+            image-rendering: pixelated; /* Preserve sharp pixel edges */ 
+            
+            margin-bottom: 3px;
+        }
+
     </style>
 
     <style>
@@ -545,11 +756,110 @@
 	<link rel="shortcut icon" type="image/x-icon" href="src/largeking.ico">
 </head>
 <body>
+    
+    <div id="tooltip" class="tooltip"></div>
+
     <script src="util/sprites_compiled64.js"></script>
- 
-    <script src="src/EZWG.js"></script> 
+
+    <script src="util/scent_damage_profiles.js"></script>
+
+      <!--   <script src="util/all_scents.js"></script> 
+  -->
+    <script src="src/EZWG.js"></script>
+
+	<script src="util/extrascripts/p5.min.js"></script>
+
+    <script src="util/extrascripts/titlechanger_figure.js"></script>
+    
+    
+    <!-- <img id="trainingguy1" class="hidden" width="8" height="8" src="util/entity_sprites_organizer/hostilegaia/traingindummeron/0010.png" alt="trainingguy1" /> -->
+    <!-- <img id="spider1" class="hidden" width="16" height="16"    src="util/entity_sprites_organizer/hostilegaia/spider/normal_t/tile530.png" alt="spider1" /> -->
+    <img id="spider1" class="hidden" width="16" height="16"    src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAAklEQVR4AewaftIAAACLSURBVF3BsQnCQBSA4f8dWUAQ7Oy0tBFSpHGBHO5glwyQwkHOJmM4g4VzhMBxB7dBnilOPPw+UVVKrmu0f7yEzFBwXaO9rXFdo2SGwjQH7DAyzYEvQ3a/HhYfkwLqY9LbZb+wqiicT0fp2xr3fCtZReZjwsek2FqmOQggrAw/ZrfdiB1GSoaCj4l/H8KIMhALMb5IAAAAAElFTkSuQmCC" alt="spider1" />
 
     <script>
+ 
+        var cubeMapOutput = null;
+        function uniqueColoursAndCubeMap( canvas, listOfAnimImages ){
+            let ctx = canvas.getContext( '2d' );
+            canvas.width = 16;
+            canvas.height = 16;
+            ctx.imageSmoothingEnabled = false;
+
+            let listOf2DSlices = [];
+
+            let theNuMap = [];
+            let allUniqCols = [];
+
+            // Loop through each image and compule it into a 2d array of colours
+            // [x][y] = {r:22, g: 44, b: 63, a: 34}
+            for(let d = 0; d < listOfAnimImages.length;d++){
+                
+                let entirSlic = new Array( canvas.width );
+                for(let b = 0;b < entirSlic.length;b++){
+                    entirSlic[b] = new Array( canvas.height );
+                }
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(listOfAnimImages[d], 0, 0, listOfAnimImages[d].width, listOfAnimImages[d].height);
+                let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                let data = imageData.data;
+    
+                for (let i = 0; i < data.length; i += 4) {
+                    let red = data[i];
+                    let green =data[i + 1];
+                    let blue = data[i + 2];
+                    let alph = data[i + 3];
+
+                    // Check for a colour match
+                    let currColIndMatch = -1;
+                    if(alph > 0 ){
+                        for(let a = 0;a < allUniqCols.length;a++){
+                            if( allUniqCols[a].r === red && allUniqCols[a].g === green && allUniqCols[a].b === blue ){
+                                currColIndMatch = a;
+                            }
+                        }
+                        // Need to make new colour
+                        if( currColIndMatch === -1 ){
+                            allUniqCols.push({r: red, g: green, b: blue});
+                            theNuMap.push(allUniqCols.length);
+                        }
+                        else{
+                            theNuMap.push(currColIndMatch+1)
+                        }
+                    }
+                    else{
+                        theNuMap.push(0);
+                    }
+                }
+    
+                listOf2DSlices.push(
+                    entirSlic
+                );
+    
+            } 
+        
+            return {l: listOf2DSlices, nm: theNuMap, cols:allUniqCols}; 
+        }
+
+        function updateInspectorProfileImage(canvas, imageToUse){
+            
+            let ctx = canvas.getContext( '2d' );
+            let sizeLarge = 8;
+            canvas.width = 16*sizeLarge;
+            canvas.height = 16*sizeLarge;
+            ctx.imageSmoothingEnabled = false;
+  
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(imageToUse, 0, 0, imageToUse.width*sizeLarge, imageToUse.height*sizeLarge); 
+ 
+        }
+
+        function updateInspectorDesc( idToDetail ){
+            
+        }
+
+
 
         // Utility 
         function flattenArrayExceptFirstTwo(arr) {
@@ -591,11 +901,21 @@
             showImage('1');
         }
 
+
         
         
         var ALL_IMGS = [];
         var ALL_ENTS = [];// = EntEntries;  // <- after trimmed to only the important bytes
         var ALL_FULLENTS = [];  //<- befotr tirmmed
+
+        var ALL_SCENTS = [];
+        var ALL_DMGS = [];
+ 
+
+        var ALL_HTML_IMGS_REF = []; // <- used to access 
+
+        var ACTIVE_TEMP_MOUSE_OVER_EVENTS = []; // <- used to clean up the new event handlers
+        
 
         var STIMMINGS_APP_VERSION = "v1v";
     </script>
@@ -605,21 +925,26 @@
     <div id="dadudhud" class="overlay" onclick="enableSFX()">
         <img class="info-graphic-image" src="src/howtoplay.gif" alt="GIF">
         <p>Click and drag to select units</p>
-      </div>
+    </div>
+
+    <!-- <div class="hover-target" data-tooltip="This is element 1">Element 1</div>
+    <div class="hover-target" data-tooltip="Another tooltip text for element 2">Element 2</div>
+    <div class="hover-target" data-tooltip="Hover over me for info!">Element 3</div> -->
     
     <!-- <div id="secretConsole"> 
     </div> -->
+    <canvas class="hidden" id="tempcanvem" width="79" height="41"></canvas>
     <div id="demoCanvasContainer"></div>
 
     <div id="hud">
         <div id="grid-container">
             <div> 
-                <div>
+                <div class="hover-target" data-tooltip="Toggle the SFX player">
                     <input type="checkbox" checked id="checkbox1">
                     <label for="checkbox1">sfx enabled</label>
                 </div>
 
-                <div>
+                <div class="hover-target" data-tooltip="Highlight all the entities that have an allegiance to one of the 4 player controlled teams">
                     <input type="checkbox" id="checkbox2">
                     <label for="checkbox2">show allegianced</label>
                 </div>
@@ -645,7 +970,7 @@
                     <label for="checkbox6">log sounds</label>
                 </div>
                 <div>
-                    <input type="checkbox" checked id="checkbox7">
+                    <input type="checkbox" checked id="checkbox7" disabled>
                     <label for="checkbox7">adaptive mouser</label>
                 </div>
 
@@ -665,6 +990,7 @@
         <div id="entEditorPlace"> </div> 
 
         <div class="hidden" id="all-ents-container"></div>
+        <div class="hidden" id="secretrforeever"></div>
         <div id="list-container"></div> 
         
 
@@ -675,9 +1001,10 @@
                 <div id="scenarioloadser">
                     <p>Examples (<a href="https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API#browser_compatibility">Must have chrome</a>):</p>
                     <div class="dropdown">
-                        <select id="dropdown" onchange="handleSelectChange(this.value)">
-                            <option value="0">Perlin Forest</option>
-                            <option value="1">Paragraph Maze</option>
+                        <select id="dropdown" onchange="handleSelectChange(this.value)">  <!-- -->
+                            <option value="0">Perlin Noise</option>
+                            <option value="1">Percolation Islands</option>
+                            <!-- <option value="2">Paragraph Maze</option> -->
                              
                             <!-- <option value="12">Free Verticies</option> -->
                         </select>
@@ -701,9 +1028,30 @@
         </div>
          
     </div>
-    <div id="openCloserThing" onclick="switchHud()">
-        <h2>EDIT</h2>
+ 
+    <!-- TOOL TIP  -->
+    <div id="tooldecoration" class="tool-tip-icon-img disable-selectt">
+
+        <img id="tool0" src="util/controlicons/eyedroppericon.png" class="tooltip-just-img hidden" tabindex="-1" draggable="false" alt="Tool 0">
+        <img id="tool1" src="util/controlicons/buildicon.png" class="tooltip-just-img hidden" tabindex="-1" draggable="false" alt="Tool 1">
+        <img id="tool2" src="util/controlicons/cameraicon.png" class="tooltip-just-img hidden" tabindex="-1" draggable="false" alt="Tool 2">
+
     </div>
+
+    <div id="openCloserThing" onclick="switchHud()">
+        <h2>ADMIN</h2>
+    </div>
+
+    <div id="inspectorSection">
+        <div id="p5js3dViewer"></div>
+        <div id="exactProfileContainer" class="profile-container">
+
+            
+
+        </div>
+        <p>section for inspecting lil guys</p>
+    </div>
+
     <div id="image-container" style="position: absolute; top: calc(50vh); left: 10px;"> 
         <div class="hidden" id="img-1"> <img src="src/keycapui/1.png" /> <p class="shadowtip"> entity inspector + click and drag to select </p> </div>
         <div class="hidden" id="img-2"> <img src="src/keycapui/2.png" /> <p class="shadowtip"> click and drag to <span style="color:rgb(110, 253, 27);">REQUEST</span> place entities </p> </div>
@@ -743,6 +1091,13 @@
         var gamepadSelect = document.getElementById('gamepadSelect');
         var selectedGamepadIndex = null;
         var takingInputFromKeyboard = true;
+
+        var toolImages = [
+            document.getElementById('tool0'),
+            document.getElementById('tool1'),
+            document.getElementById('tool2'),
+        ];
+        var toolTimeout = null;
 
         
 
@@ -875,7 +1230,7 @@
         });
       }
 
-      // Listen for gamepad connection and disconnection
+    // Listen for gamepad connection and disconnection
     window.addEventListener('gamepadconnected', updateGamepadDropdown);
     window.addEventListener('gamepaddisconnected', updateGamepadDropdown);
     //// Monitor selected gamepad from dropdown
@@ -1010,30 +1365,7 @@
         }
     }
 
-        //console.log("____");
-
-        
-        //console.log(valpressed);
-        
-        // console.log(gamepad);
-
-        // let gamebpad = gamepad;
-        // if( JSON.stringify(LAST_CONTROLLER_INPUT) !== JSON.stringify(gamebpad)){
-        //   console.log(gamebpad)
-        //   LAST_CONTROLLER_INPUT = gamebpad;
-        // }
-        //  let valpressed= ''+gamepad.id+":";
-        //gamepad.buttons.forEach((button, index) => {
-        //  //valpressed += '' + button.pressed?index:'';
-        //  valpressed += '' + button.pressed;//?index:'';
-        //  //console.log(`Button ${index}: ${button.pressed ? 'Pressed' : 'Released'}`);
-        //});
-        //console.log(valpressed)
-        //gamepad.axes.forEach((axis, index) => {
-        //  console.log(`Axis ${index}: ${axis.toFixed(2)}`);
-        //});
-        
-        //requestAnimationFrame(logGamepadInputs); 
+ 
         
     </script>
 
@@ -1066,12 +1398,13 @@
 
 
         // Function to generate a random bright color
-function getRandomBrightColor() {
-    const r = Math.floor(Math.random() * 156 + 100);  // Random number between 100-255 (brighter)
-    const g = Math.floor(Math.random() * 156 + 100);
-    const b = Math.floor(Math.random() * 156 + 100);
-    return `rgb(${r},${g},${b})`;
-  }
+        function getRandomBrightColor() {
+            const r = Math.floor(Math.random() * 156 + 100);  // Random number between 100-255 (brighter)
+            const g = Math.floor(Math.random() * 156 + 100);
+            const b = Math.floor(Math.random() * 156 + 100);
+            return `rgb(${r},${g},${b})`;
+        }
+
         // THe Key Coder shower
         const imageContainer = document.getElementById('image-container');
         const imagesJubilie = {
@@ -1152,7 +1485,7 @@ function getRandomBrightColor() {
         }
 
         // Start polling every 500 ms for gamepad changes
-        setInterval(pollGamepads, 54);
+        //setInterval(pollGamepads, 54);
 
 
 
@@ -1160,6 +1493,199 @@ function getRandomBrightColor() {
         function renderNewEntForm( enter ){
             console.log(ALL_FULLENTS[enter])
             renderRows(enter);
+        }
+
+        function showInfoCard(idToFind){
+
+            
+
+            let inspectorArea = document.getElementById('exactProfileContainer');
+
+            let ent = ALL_FULLENTS[ idToFind ];
+
+            let moveSpeed = extractMovementFreq( ent[6] );
+
+            let desireGoal = extractDesireDesc( ent[6] );
+
+            let externalids = ent[7] >>> 0;
+
+            let scentProfile = ALL_SCENTS[ (externalids & 0x0000FFFF) ];
+            let emitLead = ((scentProfile[4] >> 0 ) & 0x000000FF);
+            let emitRes =  ((scentProfile[4] >> 8 ) & 0x000000FF);
+            let emitHome=  ((scentProfile[4] >> 16 ) & 0x000000FF);
+            let emitBuild= ((scentProfile[4] >> 24 ) & 0x000000FF);
+ 
+            let emitHostileGaia = ((scentProfile[5] >> 0 ) & 0x000000FF);
+            let emitSupport = ((scentProfile[5] >> 8 ) & 0x000000FF);
+            let emitDecay = ((scentProfile[5] >> 16 ) & 0x000000FF);
+            let emitMetal = ((scentProfile[5] >> 24 ) & 0x000000FF);
+            
+            let emitGaiaHome = ((scentProfile[6] >> 0 ) & 0x000000FF);
+            //let emitGaiaHome = ((scentProfile[6] >> 0 ) & 0x000000FF);
+
+            
+            let emitVision = ((scentProfile[10] >> 0 ) & 0x000000FF);
+            let emitExpl = ((scentProfile[10] >> 8 ) & 0x000000FF);
+            let emitElec = ((scentProfile[10] >> 16 ) & 0x000000FF);
+            let emitRadi = ((scentProfile[10] >> 24 ) & 0x000000FF);
+
+            let emitBlue = ((scentProfile[11] >> 0 ) & 0x000000FF);
+
+            let damageProfile = ALL_DMGS[ ((externalids >> 16) & 0x0000FFFF) ];
+            
+                let dmgrow1 = damageProfile[0] >>> 0;
+            let maxVision = ((dmgrow1 >> 0 ) & 0x000000FF);
+            let maxExpl =   ((dmgrow1 >> 8 ) & 0x000000FF);
+            let maxElec =   ((dmgrow1 >> 16 ) & 0x000000FF);
+            let maxRadi =   ((dmgrow1 >> 24 ) & 0x000000FF);
+
+                let dmgrow2 = damageProfile[1] >>> 0;
+            let maxBlue =   ((dmgrow2 >> 0 ) & 0x000000FF);
+            
+            let pysic = getPhysicsProfile(ent[4])
+            //inspectorArea.innerHTML = `( ${idToFind} )  ${ent[0]} Desc: ${ent[1]} <br> Sfx: ${ent[2]} <br> Anim: ${ent[3]}`;
+
+            let goodnessFrom=getPhysicsProfile(ent[8]);
+            let badnessFrom =getPhysicsProfile(ent[9]);
+            let trans1From = getPhysicsProfile(ent[10]);
+            let trans2From = getPhysicsProfile(ent[11]);
+
+            let goodnessRes =  (ent[18] >> 0) & 0x0000FFFF;
+            let badnessRes = (ent[18] >> 16) & 0x0000FFFF;
+            let trans1Res = (ent[19] >> 0) & 0x0000FFFF;
+            let trans2Res = (ent[19] >> 16) & 0x0000FFFF;
+
+            let goodnessType = (ent[20] >> 0) & 0x000000FF;
+            let badnessType =  (ent[20] >> 8) & 0x000000FF;
+            let trans1Type =  (ent[20] >> 16) & 0x000000FF;
+            let trans2Type = (ent[20] >> 24) & 0x000000FF;
+
+            let goodAmb = (ent[16] >> 0) & 0x0000FFFF;
+            let badAmb =  (ent[16] >> 16) & 0x0000FFFF;
+            let trans1Amb = (ent[17] >> 0) & 0x0000FFFF;
+            let trans2Amb = (ent[17] >> 16) & 0x0000FFFF;
+
+            let goodMax = (ent[12] >> 0) & 0x0000FFFF;
+            let badMax =  (ent[12] >> 16) & 0x0000FFFF;
+            let trans1Max = (ent[13] >> 0) & 0x0000FFFF;
+            let trans2Max =  (ent[13] >> 16) & 0x0000FFFF;
+
+            let goodPwr = (ent[14] >> 0) & 0x0000FFFF;
+            let badPwr = (ent[14] >> 16) & 0x0000FFFF;
+            let trans1Pwr = (ent[15] >> 0) & 0x0000FFFF;
+            let trans2Pwr = (ent[15] >> 16) & 0x0000FFFF;
+
+
+            let buildCost = (ent[22] >> 16) & 0x0000FFFF;
+
+
+            inspectorArea.innerHTML = `
+            <div class="profile-section">
+                <div class="build-amt-parent disable-selectt live-hover" data-tooltip="Stimmings required to build this entity from a blueprint">
+                    <img width="120px" draggable="false" src="util/build_number_template.png"></img>
+                    <h2 class="build-number">${buildCost}</h2>
+                </div>
+                <div class="profile-picture"> 
+                    <canvas id="inspectorShower"></canvas>
+                </div>
+                <div class="profile-description">
+                    <h2>${ent[0]}</h2>
+                    <p>${ent[1]}</p>
+                    <p class="live-hover" data-tooltip="Entity moves on average once every this amount of frames (lower number means faster)"><b>Speed:</b> ${moveSpeed}</p>
+                    <p><b>Goal:</b> ${desireGoal}</p> 
+                    <p class="live-hover" data-tooltip="How adjacent entities interpret this entity"><u>Physics Profile:</u></p>
+                    <p>${getPhysicsProfile(ent[4])}</p>
+
+                    <br>
+                </div>
+            </div>
+            <hr>
+            <div class="profile-description">
+                <p><span class="prof-info-header live-hover" data-tooltip="The respective transformation channels increase when adjacent entities hold atleast one of the listed physics attributes in the neighbouring entity's Physics Profile">Reacts With:</span></p>
+                ${ goodnessFrom.length > 0 ? `<p class="good-col"><span class="live-hover" data-tooltip="Usually defines what is good for this entity">Channel A:</span> <span class="normal-stat-col">${goodnessFrom}</span></p>`: ``}
+                ${ badnessFrom.length > 0 ? `<p class="bad-col"><span class="live-hover" data-tooltip="Defines what this entity takes damage from">Damage:</span> <span class="normal-stat-col">${badnessFrom}</span></p>`: ``}
+                ${ trans1From.length > 0 ? `<p class="trans1-col">Channel C: <span class="normal-stat-col">${trans1From}</span></p>`: ``}
+                ${ trans2From.length > 0 ? `<p class="trans2-col">Channel D: <span class="normal-stat-col">${trans2From}</span></p>`: ``}
+                <br>
+            </div>
+            
+            <hr>
+            <div class="profile-description">
+                <p><span class="prof-info-header live-hover" data-tooltip="Neighbouring cells receive this value on their respective transformation channel if listed in their 'Reacts With'">Power:</span></p>
+                ${ goodPwr > 0 ? `<p class="good-col">Channel A: <span class="normal-stat-col">${goodPwr}</span></p>`: ``}
+                ${ badPwr > 0 ? `<p class="bad-col">Damage: <span class="normal-stat-col">${badPwr}</span></p>`: ``}
+                ${ trans1Pwr > 0 ? `<p class="trans1-col">Channel C: <span class="normal-stat-col">${trans1Pwr}</span></p>`: ``}
+                ${ trans2Pwr > 0 ? `<p class="trans2-col">Channel D: <span class="normal-stat-col">${trans2Pwr}</span></p>`: ``}
+                <br>
+            </div>
+
+            <hr>
+            <div class="profile-description">
+                <p><span class="prof-info-header live-hover" data-tooltip="The possible transformation channels that activate when their respective '@ MAX' is reached">Transformations:</span></p>
+                ${ (goodMax < 65535) ? `<p class="good-col">Channel A @ ${goodMax}: ${getTransformType(goodnessType)} ${getLittleEntityIndicator(goodnessRes)} ${(goodAmb>0)?`<span class="live-hover" data-tooltip="This value is added every time step to this channel">(+${goodAmb})</span>`:``}</p>`: ``}
+                ${ (goodMax === 65535 && goodnessRes > 0) ? `<p class="good-col">Channel A @ ${getControlKeyIndicator(2)}: ${getTransformType(goodnessType)} ${getLittleEntityIndicator(goodnessRes)} ${(goodAmb>0)?`<span class="live-hover" data-tooltip="This value is added every time step to this channel">(+${goodAmb})</span>`:``}</p>`: ``}
+
+                ${ (badMax < 65535) ? `<p class="bad-col">Damage @ ${badMax}: ${getTransformType(badnessType)} ${getLittleEntityIndicator(badnessRes)} ${(badAmb>0)?`<span class="live-hover" data-tooltip="This value is added every time step to this channel">(+${badAmb})</span>`:``}</p>`: ``}
+
+                ${ (trans1Max < 65535) ? `<p class="trans1-col">Channel C @ ${trans1Max}: ${getTransformType(trans1Type)} ${getLittleEntityIndicator(trans1Res)} ${(trans1Amb>0)?`<span class="live-hover" data-tooltip="This value is added every time step to this channel">(+${trans1Amb})</span>`:``}</p>`: ``}
+                ${ (trans1Max === 65535 && trans1Res > 0) ? `<p class="trans1-col">Channel C @ ${getControlKeyIndicator(0)}: ${getTransformType(trans1Type)} ${getLittleEntityIndicator(trans1Res)} ${(trans1Amb>0)?`<span class="live-hover" data-tooltip="This value is added every time step to this channel">(+${trans1Amb})</span>`:``}</p>`: ``}
+
+                ${ (trans2Max < 65535) ? `<p class="trans2-col">Channel D @ ${trans2Max}: ${getTransformType(trans2Type)} ${getLittleEntityIndicator(trans2Res)} ${(trans2Amb>0)?`<span class="live-hover" data-tooltip="This value is added every time step to this channel">(+${trans2Amb})</span>`:``}</p>`: ``}
+                ${ (trans2Max === 65535 && trans2Res > 0) ? `<p class="trans2-col">Channel D @ ${getControlKeyIndicator(1)}: ${getTransformType(trans2Type)} ${getLittleEntityIndicator(trans2Res)} ${(trans2Amb>0)?`<span class="live-hover" data-tooltip="This value is added every time step to this channel">(+${trans2Amb})</span>`:``}</p>`: ``}
+                <br>
+            </div>
+            
+            <hr>
+            <div class="profile-description">
+                <p><span class="prof-info-header live-hover" data-tooltip="The entity's 'Damage' channel is activated if the respective environmental values are larger than these values">Max Hazards:</span></p>
+                ${maxVision< 255 ? `<span class="vision-stat-col">Vision ${maxVision}</span>`: ``}
+                ${ maxExpl < 255 ? `<span class="expl-stat-col">Explosion ${maxExpl}</span>`: ``}
+                ${ maxElec < 255 ? `<span class="elect-stat-col">Electricity ${maxElec}</span>`: ``}
+                ${ maxRadi < 255 ? `<span class="radi-stat-col">Radiation ${maxRadi}</span>`: ``}
+                <br>
+            </div>
+            
+            <hr>
+            <div class="profile-description">
+                <p><span class="prof-info-header live-hover" data-tooltip="Scents emitted for pathfinding">Emitting Scents:</span></p>
+                ${ emitLead > 0 ? `<span class="vision-stat-col">Leader </span>`: ``}
+                ${ emitRes > 0 ? `<span class="res-stat-col">Resource </span>`: ``}
+                ${ emitHome > 0 ? `<span class="res-stat-col">Homebase </span>`: ``}
+                ${ emitBuild > 0 ? `<span class="res-stat-col">Build </span>`: ``}
+                
+                ${ emitHostileGaia > 0 ? `<span class="vision-stat-col">Hostile </span>`: ``}
+                ${ emitSupport > 0 ? `<span class="vision-stat-col">Support </span>`: ``}
+                ${ emitDecay > 0 ? `<span class="vision-stat-col">Decay </span>`: ``}
+                ${ emitMetal > 0 ? `<span class="vision-stat-col">Metal </span>`: ``}
+
+                ${ emitGaiaHome > 0 ? `<span class="vision-stat-col">GaiaHQ </span>`: ``}
+                
+                ${ emitVision > 0 ? `<span class="vision-stat-col">Vision (${emitVision})</span>`: ``}
+                ${ emitExpl > 0 ? `<span class="vision-stat-col">Explosion (${emitExpl})</span>`: ``}
+                ${ emitElec > 0 ? `<span class="vision-stat-col">Electricity (${emitElec})</span>`: ``}
+                ${ emitRadi > 0 ? `<span class="vision-stat-col">Radiation (${emitRadi})</span>`: ``}
+                
+                ${ emitBlue > 0 ? `<span class="vision-stat-col">Bluetooth (${emitBlue})</span>`: ``}
+
+                
+                <br>
+            </div>
+
+            `;
+
+
+            
+
+            updateInspectorProfileImage(
+                document.getElementById('inspectorShower'),
+                ALL_HTML_IMGS_REF[idToFind]
+            );
+ 
+
+
+
+            addLiveMadeHoverTags();
+
         }
 
 
@@ -1171,6 +1697,57 @@ function getRandomBrightColor() {
 
         function searchForAndSelectExactEntity(){
 
+        }
+
+        function addLiveMadeHoverTags(){
+            clearLiveMadeHoverTags();
+            
+            var liveHoverTargets = document.querySelectorAll('.live-hover');
+            
+            for(let h = 0;h < liveHoverTargets.length;h++){
+
+                let newEntry = {};
+                newEntry.element = liveHoverTargets[h];
+
+                newEntry.mouseEnterHandler = () => {
+                    const text = newEntry.element.getAttribute('data-tooltip');
+                    tooltip.textContent = text;
+                    tooltip.style.display = 'block';
+                }
+                newEntry.element.addEventListener( 'mouseenter', newEntry.mouseEnterHandler );
+
+                newEntry.mouseLeaveHandler = () => {
+                    tooltip.style.display = 'none';
+                }
+                newEntry.element.addEventListener( 'mouseleave', newEntry.mouseLeaveHandler );
+                
+                newEntry.mouseMoveHandler = () => {
+                    tooltip.style.left = `${event.pageX + 10}px`; // Update position within hover-target
+                    tooltip.style.top =  `${event.pageY + 10}px`;
+                }
+                newEntry.element.addEventListener( 'mousemove', newEntry.mouseMoveHandler );
+
+
+                ACTIVE_TEMP_MOUSE_OVER_EVENTS.push(newEntry);
+                
+            }
+
+        }
+
+        function clearLiveMadeHoverTags(){
+            for(let b = 0;b < ACTIVE_TEMP_MOUSE_OVER_EVENTS.length;b++){
+                ACTIVE_TEMP_MOUSE_OVER_EVENTS[b].element.removeEventListener('mouseenter', ACTIVE_TEMP_MOUSE_OVER_EVENTS[b].mouseEnterHandler);
+                ACTIVE_TEMP_MOUSE_OVER_EVENTS[b].element.removeEventListener('mouseleave', ACTIVE_TEMP_MOUSE_OVER_EVENTS[b].mouseLeaveHandler);
+                ACTIVE_TEMP_MOUSE_OVER_EVENTS[b].element.removeEventListener('mousemove', ACTIVE_TEMP_MOUSE_OVER_EVENTS[b].mouseMoveHandler);
+                ACTIVE_TEMP_MOUSE_OVER_EVENTS[b].element.remove();
+            }
+            ACTIVE_TEMP_MOUSE_OVER_EVENTS = [];
+        }
+
+        function destroyInspectorView(){
+            clearLiveMadeHoverTags();
+            var area = document.getElementById('exactProfileContainer')
+            area.innerHTML = '';
         }
 
 
@@ -1298,6 +1875,7 @@ var EntEntries = [
                     images = ALL_IMGS.map(src => {
                         const img = new Image(); 
                         img.src = 'data:image/png;base64,' + src;
+
                         const div = document.createElement('div');
                         div.className = 'image-box';
                         div.appendChild(img);
@@ -1366,8 +1944,17 @@ var EntEntries = [
             document.getElementById("hud").addEventListener('wheel', function(event) {
                 // Prevents the event from propagating to the parent or background elements
                 event.stopPropagation();
-                 
             });
+            
+            document.getElementById("inspectorSection").addEventListener('wheel', function(event) {
+                // Prevents the event from propagating to the parent or background elements
+                event.stopPropagation();
+            });
+            
+            document.getElementById("openCloserThing").addEventListener('wheel', function(event) {
+                // Prevents the event from propagating to the parent or background elements
+                event.stopPropagation();
+            }); 
 
             container.addEventListener('mousemove', (event) => {
                 const mouseX = event.clientX;
@@ -1406,21 +1993,30 @@ var EntEntries = [
 
              
 
-            ALL_FULLENTS.forEach((item, index) => {
+            //ALL_FULLENTS.forEach((item, index) => {
+            for(let f = 0;f < ALL_FULLENTS.length;f++){
                 const listItem = document.createElement('div');
                 listItem.className = 'list-item';
-                listItem.setAttribute("entid", index)
+                listItem.setAttribute("entid", f)
 
                 
                 const img = new Image();
-                let vall = (item[5] & 0x0000FFFF); 
+                let vall = (ALL_FULLENTS[f][5] & 0x0000FFFF); 
                 //const img = document.createElement('img');
-                vall = 'data:image/png;base64,' + spriteb64s[vall];
+                let b64String = 'data:image/png;base64,' + spriteb64s[vall];
                 //console.log(ALL_IMGS)
                 img.classList.add('imgmg-dfdf')
-                img.src = vall; // Start with the first image
-                img.dataset.currentImage = 0; // Store the current image index
+                img.src = b64String; // Start with the first image 
                 
+                
+                // Get image element to use for the 3D inspector rendering:
+                var imgFor3D = document.createElement('img');
+                imgFor3D.width = 16;
+                imgFor3D.height = 16;
+                imgFor3D.src = b64String;
+                //imgFor3D.classList.add('hidden')
+
+                ALL_HTML_IMGS_REF.push(imgFor3D);
                 
                 // Construct the correct file path for the proxy request 
                 const div = document.createElement('div');
@@ -1428,34 +2024,39 @@ var EntEntries = [
                 div.appendChild(img);
                 
                 const name = document.createElement('span');
-                name.textContent = item[0];
+                name.textContent = ALL_FULLENTS[f][0];
 
                 listItem.appendChild(img);
                 listItem.appendChild(name);
                 
                 // Add click event listener
                 listItem.addEventListener('click', () => {
-                    handleItemClick(index, img);
+                    LAST_CLICKED_ENT = Number(f);
+ 
+
+                    // Check if it's gonna be a ruleful place or a CHEAT
+                    if( EZ_EXAMPLE.placeByTheRules === true ){
+                        CURRENT_TOOL = 2;
+                    }
+                    if( EZ_EXAMPLE.placeByTheRules === false ){
+                        CURRENT_TOOL = 3;
+                    }
+
+
+
+                    EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
+
+                    handleItemClick(f, img);
                 });
 
                 container.appendChild(listItem);
-            });
+            }//);
+            
         }
 
-        function handleItemClick(index, imgElement) {
-            //const currentImageIndex = parseInt(imgElement.dataset.currentImage, 10);
-            //const newImageIndex = (currentImageIndex + 1) % hub[index].images.length;
-            
-            //imgElement.src = hub[index].images[newImageIndex]; // Cycle to the next image
-            //imgElement.dataset.currentImage = newImageIndex; // Update the current image index
-
-            LAST_CLICKED_ENT = Number(index);
-            CURRENT_TOOL = 2;
-            EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
-
+        function handleItemClick(index, imgElement) { 
             document.getElementById('indLastClick').innerHTML = 
                 (ALL_FULLENTS[index][5] & 0x0000FFFF);
-            
             renderNewEntForm(index)
             // Call the function with the index
             console.log('Item clicked:', index);
@@ -1497,8 +2098,7 @@ var EntEntries = [
 
         function getPhysicsProfile(val){
             
-            let u32 = val >>> 0; 
-            console.log(PHYS)
+            let u32 = val >>> 0;
             let dakeys = Object.keys(PHYS);
             let end = '';
             for(let n = 0;n < dakeys.length;n++){
@@ -1509,11 +2109,170 @@ var EntEntries = [
                     let ir = 255 - col.r;
                     let ig = 255 - col.g;
                     let ib = 255 - col.b;
+
+                    let datatag = '';
+                    let trimmedval = dakeys[n].slice(8);
+
+                    if( trimmedval === 'ALLEGIANCED'){
+                        datatag = "entities that have an allegiance to one of the 4 player controlled teams";
+                    }
+                    else if( trimmedval === 'LEADER'){
+                        datatag = "WASD controllable and emits the leader scent which attracts faith workers";
+                    }
+                    else if( trimmedval === 'RES'){
+                        datatag = "consumable by Stimmings workers and other entities that benefit from resources";
+                    }
+                    else if( trimmedval === 'WALL'){
+                        datatag = "inert and damageable by miners";
+                    }
+                    else if( trimmedval === 'HOMEBASE'){
+                        datatag = "the destination for Stimmings or workers after grabbing a resource";
+                    }
+                    else if( trimmedval === 'BLUEPRINT'){
+                        datatag = "reacts with Stimmings and builders to progress itself towards its final state";
+                    }
+                    else if( trimmedval === 'BUILDER_WORKER'){
+                        datatag = "reacts with blueprints and sacrifices itself to progress the blueprint";
+                    }
+                    else if( trimmedval === 'RES_WORKER'){
+                        datatag = "entities that react with resource cells to transform to a home bound worker";
+                    }
+                    else if( trimmedval === 'HOM_WORKER'){
+                        datatag = "entities that react with a homebase to drop off resources";
+                    }
+                    else if( trimmedval === 'WARRIOR'){
+                        datatag = "entities that inflict damage on opposing teams with an allegiance or hostile gaias";
+                    }
+                    else if( trimmedval === 'GAIA_INERT'){
+                        datatag = "entities that do not interact with hostile gaias or allegianced teams";
+                    }
+                    else if( trimmedval === 'GAIA_HOSTILE'){
+                        datatag = "entities that are not owned by any players and deal damage to Stimmings and player civilization";
+                    }
+                    else if( trimmedval === 'SUGGESTIVE'){
+                        datatag = "if entity does not have a team and also has the allegiance attribute - will convert to whatever team touches it first";
+                    }
+                    else if( trimmedval === 'MINER'){
+                        datatag = "entity does damage to walls";
+                    }
+                    else if( trimmedval === 'SUPPORT'){
+                        datatag = "entity serves Stimmings that are looking for support";
+                    }
+                    else if( trimmedval === 'SUPP_WORKER'){
+                        datatag = "some Stimmings entity that is looking for support";
+                    }
+                    else if( trimmedval === 'METAL'){
+                        datatag = "entities that can take damage from plasma";
+                    }
+
                     end += '<span style=\"color: rgb(' + col.r +',' + col.g + ',' + col.b +
-                        ');background-color: rgb(' + ir +',' + ig + ',' + ib +');\">' + dakeys[n]+', </span>';
+                        ');background-color: rgb(' + ir +',' + ig + ',' + ib +');\" class="live-hover" data-tooltip=\"' + datatag + '\">' + trimmedval+', </span>';
                 }
             }
             return end;
+        }
+        function getPhysicsProfilolde(val){
+            
+            let u32 = val >>> 0;
+            let dakeys = Object.keys(PHYS);
+            let end = '';
+            for(let n = 0;n < dakeys.length;n++){
+                //console.log(PHYS[dakeys[n]]);
+                if( ( PHYS[dakeys[n]] & u32 ) > 0){
+                    
+                    let col = getFarOut( PHYS[dakeys[n]] );
+                    let ir = 255 - col.r;
+                    let ig = 255 - col.g;
+                    let ib = 255 - col.b;
+
+                    let datatag = '';
+                    let trimmedval = dakeys[n].slice(8); 
+
+                    end += '<span style=\"color: rgb(' + col.r +',' + col.g + ',' + col.b +
+                        ');background-color: rgb(' + ir +',' + ig + ',' + ib +');\">' + trimmedval+', </span>';
+                }
+            }
+            return end;
+        }
+
+        function extractMovementFreq( val ){
+            
+            let u32 = val >>> 0;
+            
+            let speedFreq = ( u32 >> 8 ) & 0x000000FF;
+
+            return speedFreq;
+        }
+
+        function extractDesireDesc( val ){
+            
+            let u32 = val >>> 0;
+            
+            let desirVal = ( u32 >> 0 ) & 0x000000FF;
+
+            // "GOAL: "
+            if( desirVal === DESIR.DESIRE_NOTHING ){
+                return "Stay put"
+            }
+            else if( desirVal === DESIR.DESIRE_WANDER ){
+                return "Wander"
+            }
+            else if( desirVal === DESIR.DESIRE_FEZ ){
+                return "Any fez or natural resource"
+            }
+            else if( desirVal === DESIR.DESIRE_MAINCHAR ){
+                return "Take (WASD) orders from player"
+            }
+            else if( desirVal === DESIR.DESIRE_CTRL ){
+                return "Take (WASD) orders from player "
+            }
+            else if( desirVal === DESIR.DESIRE_AUTO ){
+                return "Continue the last (WASD) order given"
+            }
+            else if( desirVal === DESIR.DESIRE_LEADER ){
+                return "Nearest leader"
+            }
+            else if( desirVal === DESIR.DESIRE_HOME ){
+                return "Drop off stuff at the nearest Stimmings home"
+            }
+            else if( desirVal === DESIR.DESIRE_RES ){
+                return "Any natural resource"
+            }
+            else if( desirVal === DESIR.DESIRE_BUILD ){
+                return "Any location that requries builders"
+            }
+            else if( desirVal === DESIR.DESIRE_SUPPORT ){
+                return "Any support building"
+            }
+            else if( desirVal === DESIR.DESIRE_PERM ){
+                return "Continue its direction defined at conception"
+            }
+            else if( desirVal === DESIR.DESIRE_METAL ){
+                return "Any entity that emits a metal scent"
+            }
+            else if( desirVal === DESIR.DESIRE_DECAY ){
+                return "Any entity that emits a scent of decay"
+            }
+            else if( desirVal === DESIR.DESIRE_GAIAHOME ){
+                return "A gaia neutral homebase"
+            }
+            else if( desirVal === DESIR.DESIRE_AGGROWORKER ){
+                return "Natural resources or Stimmings if they are nearby"
+            }
+            else if( desirVal === DESIR.DESIRE_PROTEC ){
+                return "Protect closest leader or go to war if trouble is nearby"
+            }
+            else if( desirVal === DESIR.DESIRE_WAR ){
+                return "Attack enemy Stimmings or hostile gaia"
+            }
+            else if( desirVal === DESIR.DESIRE_CIVILIZATION ){
+                return "Attack any Stimmings from any player"
+            }
+            else{
+                return "Unknown"
+            }
+
+            return desirVal;
         }
 
         function fourKind(lbll, good, bad, t1, t2 ){
@@ -1529,11 +2288,58 @@ var EntEntries = [
             return ann;
         }
 
+        function getControlKeyIndicator(controlkey){
+            if(controlkey === 0 ){
+                return `<img src="util/controlicons/ee.png" tabindex="-1" draggable="false" class="controller-icon-adjustment little-pixel-icon live-hover" data-tooltip="Use the E key to activate this channel">`;
+            }
+            else if(controlkey === 1 ){
+                return `<img src="util/controlicons/qq.png" tabindex="-1" draggable="false" class="controller-icon-adjustment little-pixel-icon live-hover" data-tooltip="Use the Q key to activate this channel">`;
+            }
+            else{//if(controlkey === 2 ){
+                return `<img src="util/controlicons/sp.png" tabindex="-1" draggable="false" class="controller-icon-adjustment live-hover" data-tooltip="Use the SPACE key to activate this channel">`;
+            }
+        }
+
+        function getTransformType(trasnftype){
+            if(trasnftype === 0 ){
+                return `<img src="util/controlicons/selftransform.png" tabindex="-1" draggable="false" class="controller-icon-adjustment little-pixel-icon live-hover" data-tooltip="Transformation becomes this entity">`;
+            }
+            else if(trasnftype === 1 || trasnftype === 2 || trasnftype === 3 ){
+                return `<img src="util/controlicons/producetransform.png" tabindex="-1" draggable="false" class="controller-icon-adjustment little-pixel-icon live-hover" data-tooltip="Transformation is a spawning out of this entity">`;
+            }
+            else{//if(trasnftype === 4 ){
+                return `<img src="util/controlicons/damagetransform.png" tabindex="-1" draggable="false" class="controller-icon-adjustment live-hover" data-tooltip="Transformation damages this entity as it is spawning out of this entity">`;
+            }
+        }
+
+        function getLittleEntityIndicator(entId){
+
+            let classToUse = '';
+            if( ALL_HTML_IMGS_REF[entId].naturalWidth < 14){
+                classToUse = 'lesser-little-pixel-icon';
+            }
+            else{
+                classToUse = 'little-pixel-icon';
+                //classToUse = 'lesser-little-pixel-icon';
+            }
+            //classToUse = 'little-pixel-icon';
+
+            console.log('nat witdth', ALL_HTML_IMGS_REF[entId].naturalWidth);
+
+            let ent = ALL_FULLENTS[ entId ];
+            let vall = (ent[5] & 0x0000FFFF);
+            return `<img src=data:image/png;base64,${spriteb64s[ vall ]} class="${classToUse} live-hover" data-tooltip="${ent[0]}">`;
+        }
+
+        function getLittleResultIndicator(resultType){
+            return '';
+        }
+
         function renderRows(enterind) {
 
             let ent = ALL_FULLENTS[ enterind ];
             
-            let pysic = getPhysicsProfile(ent[4])
+            let pysic = getPhysicsProfilolde(ent[4])
 
             const rows = [
                 { title: `( ${enterind} )  ${ent[0]}`, info: `Desc: ${ent[1]} <br> Sfx: ${ent[2]} <br> Anim: ${ent[3]}` },
@@ -1544,12 +2350,13 @@ var EntEntries = [
                 
                 { title: `dmg prof.:${(ent[7] >> 16)&0x0000FFFF}  scnt prof.:${ (ent[7]) & 0x0000FFFF}`, info: 'Scent Profile 0x0000FFFF<br>Dmg Profile 0xFFFF0000' },
                 
-                { title: `goodness from: ${getPhysicsProfile(ent[8])}  `, info: 'Goodness from' },
-                { title: `badness from: ${getPhysicsProfile(ent[9])}  `, info: 'Badness from' },
-                { title: `trans1 from: ${getPhysicsProfile(ent[10])}  `, info: 'Trans1 from' },
-                { title: `trans2 from: ${getPhysicsProfile(ent[11])}  `,info: 'Trans2 from' },
+                { title: `goodness from: ${getPhysicsProfilolde(ent[8])}  `, info: 'Goodness from' },
+                { title: `badness from: ${getPhysicsProfilolde(ent[9])}  `, info: 'Badness from' },
+                { title: `trans1 from: ${getPhysicsProfilolde(ent[10])}  `, info: 'Trans1 from' },
+                { title: `trans2 from: ${getPhysicsProfilolde(ent[11])}  `,info: 'Trans2 from' },
 
                 
+
                 { title: `${fourKind('max', (ent[12] >> 0) & 0x0000FFFF, (ent[12] >> 16) & 0x0000FFFF, (ent[13] >> 0) & 0x0000FFFF, (ent[13] >> 16) & 0x0000FFFF)}  `,info: 'Max values before result is triggered' },
 
                 { title: `${fourKind('pwr', (ent[14] >> 0) & 0x0000FFFF, (ent[14] >> 16) & 0x0000FFFF, (ent[15] >> 0) & 0x0000FFFF, (ent[15] >> 16) & 0x0000FFFF)}  `,info: 'Power as interpreted by reacting ents' },
@@ -1600,7 +2407,7 @@ var EntEntries = [
         // ^ Used by the stimmings_sfx file 
         var INTERVAL_ID = null
 
-        var consoleEl = null;//document.getElementById("secretConsole")
+        var sec_console = null;//document.getElementById("secretConsole")
 
         var CURRENT_TOOL = 1;
 
@@ -1668,6 +2475,8 @@ var EntEntries = [
             //     console.error('Audio file not loaded yet:', index);
             // }
         }
+        
+ 
         function checkValue(input) {
             let value = parseInt(input.value);
             if (isNaN(value)) {
@@ -1687,7 +2496,7 @@ var EntEntries = [
         function unlockAudioContext() {
             if( canPlaySound === false){
                 
-                requestHIDAccess();
+                //requestHIDAccess();
             }
             canPlaySound = true; // Update global variable
             
@@ -1718,7 +2527,7 @@ var EntEntries = [
         function addToConsole(content, modifier = {}) {
 
             
-            const parent = consoleEl;//document.getElementById("parent");
+            const parent = sec_console;//document.getElementById("parent");
             const newDiv = document.createElement("div");
             
             // Set the default class and content for the new div
@@ -1780,17 +2589,19 @@ var EntEntries = [
         //     let newEntry = document.createElement('p');
         //     newEntry.innerHTML = '' + sthsing;
         //     currentlogs.push(newEntry)
-        //     consoleEl.appendChild( newEntry );
+        //     sec_console.appendChild( newEntry );
         // }
 
         function handleSelectChange(value) {
             clearExample();
             loadExample( Number(value) )
         }
+ 
+        
 
         function handleToolChange(value){
-            CURRENT_TOOL = value;
-            console.log(CURRENT_TOOL)
+            //CURRENT_TOOL = value;
+            //console.log(CURRENT_TOOL)
         }
         
         function yourFunction(value) {
@@ -1799,6 +2610,14 @@ var EntEntries = [
         }
 
          
+        const counterInput = document.getElementById('counter');
+
+        // Prevent all keyboard inputs except for up/down arrow adjustments
+        counterInput.addEventListener('keydown', (e) => {
+            if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') {
+                e.preventDefault();
+            }
+        });
 
         document.addEventListener("DOMContentLoaded", function() {
             // const codeEditor = document.getElementById("codeEditor");
@@ -1881,18 +2700,18 @@ var EntEntries = [
             }
           });
           
-          document.getElementById('checkbox6').addEventListener('change', function() {
+        document.getElementById('checkbox6').addEventListener('change', function() {
             unlockAudioContext();
             if (this.checked) { 
             }
             else { 
             }
             if( EZ_EXAMPLE ){
-              LOG_THE_SOUNDS = this.checked ? true : false;
+                LOG_THE_SOUNDS = this.checked ? true : false;
             }
-          });
+        });
 
-          document.getElementById('checkbox7').addEventListener('change', function() {
+        document.getElementById('checkbox7').addEventListener('change', function() {
             unlockAudioContext();
             if (this.checked) {
 
@@ -1903,13 +2722,8 @@ var EntEntries = [
             if( EZ_EXAMPLE ){
                 ADAPTIVE_MOUSE = this.checked ? true : false;
             }
-          });
-          
-          document.addEventListener('mousemove', function(event) {
-            GLOBAL_MOUSE_X = event.clientX;
-            GLOBAL_MOUSE_Y = event.clientY;
-            //console.log(`Mouse X: ${GLOBAL_MOUSE_X}, Mouse Y: ${GLOBAL_MOUSE_Y}`);
         });
+          
            
         function cycleScentModes() {
             CURRENT_RMODE ++;
@@ -1930,14 +2744,18 @@ var EntEntries = [
             Ex9_Stimmings2,
             Ex9_Stimmings2,
         ];
+
+        var LAST_MAP_CONFIG_SELECTED = 0;
         
 
         function loadExample( exampleIndex ){
 
             //clearExample();
 
+            LAST_MAP_CONFIG_SELECTED = exampleIndex;
+            
             // Initial load the first one
-            ALL_EXAMPLES[exampleIndex]();
+            ALL_EXAMPLES[LAST_MAP_CONFIG_SELECTED]();
 
             // Freeze up the other ones
             for(let k = 0;k < ALL_EXAMPLES.length;k++){
@@ -1946,7 +2764,7 @@ var EntEntries = [
                     ejample.classList.add('hidden')
                 }
             }
-            let ekxcample = document.getElementById('exampleCode' + exampleIndex)
+            let ekxcample = document.getElementById('exampleCode' + LAST_MAP_CONFIG_SELECTED)
             if(ekxcample){
                 ekxcample.classList.remove('hidden')
             }
@@ -1978,13 +2796,27 @@ var EntEntries = [
                 // WANT_TO_LOAD_NEW = false;
                 // INCOMING_STEP = -1;
 
-                
-                console.log('beefore editor imgs is called')
+                 
 
                 // Dont need the spritess on the left that's not good 
                 getTheEditorImgs();
                 
                 addToConsole('using GPU: ' + EZ_EXAMPLE.GPUName, {noRemove:true});
+
+                // Add the values  
+
+                //setTimeout( ()=>{ 
+                //    // ANIAMTION ------====================================
+                //    let animationHub = [
+                //        ALL_HTML_IMGS_REF[0], //document.getElementById('spider1'),//
+                //        ALL_HTML_IMGS_REF[211]
+                //    ];
+                //    let theTmpCanvas = document.getElementById( 'tempcanvem' );
+                //    cubeMapOutput = uniqueColoursAndCubeMap( theTmpCanvas, animationHub );
+                //    //console.log(cubeMapOutput);
+                //    defineNewConfiguration( cubeMapOutput.nm.slice(0,256), cubeMapOutput.cols, p5canv);
+                //    //p5canv = new p5( p5ezViewer, "p5js3dViewer" );
+                //}, 1200)
             })();
 
         }
@@ -2021,6 +2853,7 @@ var EntEntries = [
                 if( !EZ_EXAMPLE.suicide && !WANT_TO_LOAD_INITIAL_BREAKOUT){
 
                     logGamepadInputs();
+
 
                     if( !EZ_EXAMPLE.paused ) { EZ_EXAMPLE.run(); }
 
@@ -2064,7 +2897,8 @@ var EntEntries = [
                     CURRENT_TOOL = 1;   // Select whatevers in the field 
                     
                     EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
-                    showImage('1');
+                    showImage('1'); 
+                    updateToolDisplay();
                 }
                 else if( (''+keything) === '2' ){
                     
@@ -2072,11 +2906,13 @@ var EntEntries = [
                         CURRENT_TOOL = 2;   // Place the last ent u clicked
                         EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
                         showImage('2');
+                        updateToolDisplay();
                     }
                     else{
                         CURRENT_TOOL = 3;   // Place the last ent u clicked
                         EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
                         showImage('3');
+                        updateToolDisplay();
                     }
                 }
                 else if( (''+keything) === '3' ){
@@ -2085,17 +2921,20 @@ var EntEntries = [
                         CURRENT_TOOL = 2;   // Place the last ent u clicked
                         EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
                         showImage('2');
+                        updateToolDisplay();
                     }
                     else{
                         CURRENT_TOOL = 3;   // Place the last ent u clicked
                         EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
                         showImage('3');
+                        updateToolDisplay();
                     }
                 } 
                 else if( (''+keything) === '4' ){
                     CURRENT_TOOL = 4;   // Place the last ent u clicked
                     EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
                     showImage('4');
+                    updateToolDisplay();
                 } 
                 else if( (''+keything) === '5' ){
                     CURRENT_TOOL = 4;   // Place the last ent u clicked
@@ -2143,7 +2982,9 @@ var EntEntries = [
                 else if( (''+keything) === 'd' || (''+keything) === 'D' ){
                     RT_RIGHT = true;
                 }
-                else if( (''+keything) === 'x' || (''+keything) === 'X' ){
+                else if( (''+keything) === 'x' || (''+keything) === 'X' || 
+                    (''+keything) === 'z' || (''+keything) === 'Z' || 
+                        (''+keything) === 'c' || (''+keything) === 'C' ){
                     RT_X = true;
                 } 
 
@@ -2190,7 +3031,11 @@ var EntEntries = [
                     
                 } 
                 else if(keything === 'Escape'){
-                    switchHud();
+                    if( SHOWINGHUD ){
+                        switchHud();
+                    }
+                    destroyInspectorView();
+
                 }
  
 
@@ -2396,15 +3241,92 @@ var EntEntries = [
     <script>
         console.log('redner the');
         
-        consoleEl = document.getElementById("secretConsole")
+        sec_console = document.getElementById("secretConsole")
+
+        var p5canv = null;
 
         window.onload = ()=>{
+
+
             clearExample();
             loadExample(0);
             
  
 
         };
+
+
+        var tooltip = document.getElementById('tooltip');
+        var hoverTargets = document.querySelectorAll('.hover-target');
+
+        var decotooltip = document.getElementById('tooldecoration');
+
+        // Update tool position
+        function updateToolPosition(event) {
+            decotooltip.style.left = event.pageX + 20 + 'px'; // Offset to the right
+            decotooltip.style.top = event.pageY + 20 + 'px'; // Offset to the bottom
+        }
+
+        // Update tool display based on MOUSETOOL
+        function updateToolDisplay() {
+            if( CURRENT_TOOL === 1) {
+                toolImages[0].classList.remove('hidden');
+                toolImages[1].classList.add('hidden');
+                toolImages[2].classList.add('hidden');
+            }
+            else if( CURRENT_TOOL === 2 || CURRENT_TOOL === 3) {
+                toolImages[0].classList.add('hidden');
+                toolImages[1].classList.remove('hidden');
+                toolImages[2].classList.add('hidden');
+            }
+            else if( CURRENT_TOOL === 4) {
+                toolImages[0].classList.add('hidden');
+                toolImages[1].classList.add('hidden');
+                toolImages[2].classList.remove('hidden');
+            }
+
+            // Hide the tool after 2 seconds
+            clearTimeout(toolTimeout);
+            //if (CURRENT_TOOL !== -1) {
+                toolTimeout = setTimeout(() => {
+                    toolImages.forEach(img => (img.classList.add('hidden')));
+                    //MOUSETOOL = -1; // Reset tool selection
+                }, 2000);
+            //}
+        }
+
+        document.addEventListener('mousemove', function(event) {
+            GLOBAL_MOUSE_X = event.clientX;
+            GLOBAL_MOUSE_Y = event.clientY;
+            updateToolPosition(event);
+            //console.log(`Mouse X: ${GLOBAL_MOUSE_X}, Mouse Y: ${GLOBAL_MOUSE_Y}`);
+        });
+
+        hoverTargets.forEach(target => {
+            target.addEventListener('mouseenter', () => {
+                const text = target.getAttribute('data-tooltip');
+                tooltip.textContent = text;
+                tooltip.style.display = 'block';
+            });
+
+            target.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
+
+            target.addEventListener('mousemove', (event) => {
+                tooltip.style.left = `${event.pageX + 10}px`; // Update position within hover-target
+                tooltip.style.top =  `${event.pageY + 10}px`;
+            }); 
+        });
+
+        // var thedropdown = document.getElementById("dropdown"); 
+        // thedropdown.addEventListener("click", (event) => {
+        //     const currentValue = thedropdown.value; 
+        //     clearExample();
+        //     loadExample( Number(''+currentValue) ) 
+        // });
+ 
+
     </script>
 
     

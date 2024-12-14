@@ -15,10 +15,13 @@ var ent_chunk: u32 = ${SCHEMA_INDEX.ent_chunk}u;
 var sct_start: u32 = ${SCHEMA_INDEX.sct_start}u;
 var sct_chunk: u32 = ${SCHEMA_INDEX.sct_chunk}u;
 var dmg_start: u32 = ${SCHEMA_INDEX.dmg_start}u;
-var dmg_chunk: u32 = ${SCHEMA_INDEX.dmg_chunk}u; 
+var dmg_chunk: u32 = ${SCHEMA_INDEX.dmg_chunk}u;
+var bp_ent_std1_val: u32 = ${STAD.ent_stim_bp}u;
+var total_entities: u32 = ${FullEntEntries.length}u;
 // var atm_start: 9999999,
 // var atm_chunk: 45
 
+var std_max_water: u32 = ${CL.STD_MAX_FORCE_B}u;
 
 // WASD input 
 var wasd_input: u32 = u32( EZ_USER_INPUT[11] );//0u;
@@ -37,7 +40,7 @@ if( sess_team_num > 0u ){
 }
  
 var SP_MAX_ENEMY_SCENT: u32 = 235u;// max enemy scent for a safe
-var SP_MIN_YOUR_SCENT: u32 = 221u;// min ur own scent for safe placement
+var SP_MIN_YOUR_SCENT: u32 = 243u;// min ur own scent for safe placement
 var SP_MIN_VIS: u32 = 21u;
 
 
@@ -54,12 +57,16 @@ var counter: u32 = u32(EZ_USER_INPUT[ EZ_USER_IN_SZE - 1 ]);
  
 
 var myPhysics = EZ_STORAGE[ 0u + ent_start + (entityType * ent_chunk) ];
-var isAlgntedWarior: u32 = 0u;
+var isAlgntedWarior: bool = false;
                             // is this entity considered alleginated
                             // AND a warrior (this)
     // check Alleginaced,,, check Warrior
 if( ((1 << 2) & myPhysics) > 0 && ((1 << 11) & myPhysics) > 0 ){
-    isAlgntedWarior = 1u;
+    isAlgntedWarior = true;
+}
+var isBp: bool = false;
+if( ((1 << 7) & myPhysics) > 0 ){
+    isBp = true;
 }
 
 var myDesire = EZ_STORAGE[ 2u + ent_start + (entityType * ent_chunk) ];
@@ -68,6 +75,9 @@ var myStepable: u32 = (myDesire >> 16) & 0x000000FF;
 myStepable = myStepable & 1u;   //JUST SUE THE FIRST BIT
 var sprOrienProfile: u32 = (myDesire >> 24) & 0x000000FF;     // when to flip
 myDesire = (myDesire >> 0) & 0x000000FF;
+ 
+var waterDesire: u32 = myDesire & 128;
+myDesire = myDesire & 127u;
 
 var sfx_startingSteppable: u32 = 0u + myStepable;
 
@@ -111,7 +121,14 @@ var resultMode: u32 =   EZ_STORAGE[ 16u + ent_start + (entityType * ent_chunk) ]
 
 var oneShot: u32 =   EZ_STORAGE[ 17u + ent_start + (entityType * ent_chunk) ];
 var dropVal: u32 =   EZ_STORAGE[ 18u + ent_start + (entityType * ent_chunk) ];  // probably teleport coordinates, and BP look up refs
+var bpCost: u32  = 0u;//(dropVal >> 16) & 0x0000FFFF;
 dropVal = (dropVal >> 0) & 0x0000FFFF;
+
+// BP Override the cost 
+if( isBp ){
+    goodBadMax = ((goodBadMax >> 16) & 0x0000FFFF); // just turn it into the bad, 
+    goodBadMax = goodBadMax | ( ( EZ_STORAGE[ 18u + ent_start + ((currT1%total_entities) * ent_chunk) ] >> 16 ) & 0x0000FFFF );
+}
 
 
 
@@ -188,6 +205,12 @@ var nghbrTeam: u32 = 0u;
 var tmpsmlExp: u32 = 0u;
 //var tmpsmlForces: u32 = 0u;
 
+// gets set later (represents the max water allowed )
+//var maxWater: u32 = 0u;  
+var currWater: u32 = EZ_CELL_VAL( EZX, 0, EZY, 0, SLTINDX_STRT + 4u + 1u );//(i/4) );
+currWater = ((currWater >> 8) & 0x000000FF);
+// ^ USED FOR clearing other pathfinding CSNT
+
 // FIRST MAKE ALL THE SCENT VALUE READS U NEED:
 //      AND ALSO maybe include the transofrmations here
 loop {                              // Goes 0-7 (inclusive)
@@ -252,15 +275,18 @@ loop {                              // Goes 0-7 (inclusive)
         iw = EZ_CELL_VAL( EZX, 0, EZY, 0, SLTINDX_STRT + 4u + (i/4) );
 
         if( ( (iw>>(8u*(i%4))) & 0x000000FF ) > ( (tmpsmlExp>>(8u*(i%4))) & 0x000000FF ) ){
-            if( i < 4 ){
-                deathYes = 1u;  // You will die...
-            }
-            else{
-                trans2Yes = 1u; // you get promoted by the 'radio waves'
-            }
+            //if( i < 4 ){
+            //    deathYes = 1u;  // You will die...
+            //}
+            //else{
+            //    trans2Yes = 1u; // you get promoted by the 'radio waves'
+            //}
+            deathYes = 1u;  // You will die...
+            
             
         }
-
+        
+        // Gets the max water 
 
         // Final checks
     }
@@ -467,10 +493,15 @@ currT2 = min( currT2, 65535 );
 var numOfStomprs: u32 = 0u;         // Amount of stompers on me movement?
 var comingFromLoc: u32 = 4u;        // Where is the stomper coming from
 
+var highestPrioStepOnMe: u32 = 0u;  // will be between 0 and 255
+var howManyBestPriosOnMe: u32 = 0u;  
+
 //          Attackers on DESTINATION
 var movConflicts: u32 = 0u;         // USED if ur going away from ur current spot
 var immintDestEntity: u32 = 0u;     // if the spot is empty or not
-var uGotLowPrio: u32 = 0u;          // USED if you happened to have a same move ona spot your LOWER in priroity
+var temPrio: u32 = 0u;     // temp variable
+var bestPrioFound: u32 = 0u;    //best priority found
+var numOfBestPriosFound: u32 = 0u; 
 
 //          Get your next destination
 var bestMoveInd: u32 = 4u;          // DEFAULT STATIONARY
@@ -493,42 +524,48 @@ loop {
 
     //      Attackers on YOUR cell
     bitind = EZ_CELL_VAL( EZX, dx, EZY, dy, 1u );
-    bitind = bitind & 0x0000000F;
+    //bitind = bitind & 0x0000000F;
 
-    if( di == 8u - bitind ){
-        numOfStomprs = numOfStomprs + 1u;   // USED in the case ur movement 
-                                            // is blocked or ur not moving in the first place
-        comingFromLoc = di;                 // Just add this number back on to 
-                                            // yourself to get the attacker (WHO THIS CELL SHOULD BECOME)
+    if( di == 8u - (bitind & 0x0000000F) ){ // desired direction of this neighbour is on ME  
+        // comingFromLoc = di; 
+
+        // HERE CHECK IF HIGHEST PRIORITY ONE STEPPING
+        //bitind = EZ_CELL_VAL( EZX, dx + (-1 + i32(nextMove%3u)), EZY, dy + (-1 + i32(nextMove/3u)), 1u );
+        bitind = (bitind>>8)&0x000000FF;//  <- NOW THE PRIORITY OF THE POTENTIAL STOMPER
+        if( bitind > highestPrioStepOnMe || (highestPrioStepOnMe == 0u && howManyBestPriosOnMe < 1u) ){  // BEING THE NEW HIGHEST PRIORITY, OR THERE'S NO PRIOTIY TO BEGIN WITH 
+             
+            comingFromLoc = di;                 // Just add this number back on to 
+                                                // yourself to get the attacker (WHO THIS CELL SHOULD BECOME)
+            highestPrioStepOnMe = bitind;// set the best priority now 
+            howManyBestPriosOnMe = 1u;
+        }
+        else if(bitind == highestPrioStepOnMe ){   // RESET - no stompers now because theres a tie and there's already another "comingFromLoc" that was set 
+            howManyBestPriosOnMe = howManyBestPriosOnMe + 1u;
+        }
+        // go through 
     }
     
     //      Attackers on TO cell (USED when nextMove not 4)
     //      "verifying DESTINATION still good"
-    bitind = EZ_CELL_VAL( EZX, dx + (-1 + i32(nextMove%3u)), EZY, dy + (-1 + i32(nextMove/3u)), 1u );
-    //bitind = bitind & 0x000000FF;
-    bitind = (bitind & 0x0000000F);
-    if( di == 8u - ( (bitind >> 0) & 0x000000FF) ){      // The neighbour di around the going-to location is on the
-        movConflicts = movConflicts + 1u;
+    bitind = EZ_CELL_VAL( EZX, dx + (-1 + i32(nextMove%3u)), EZY, dy + (-1 + i32(nextMove/3u)), 1u ); 
+    temPrio = ((bitind>>8)&0x000000FF);  //is now the priority of the neighbur
+    bitind = (bitind & 0x0000000F); // bitind is now the next movement direction of the neighbur
+    if( di == 8u - bitind ){      // The neighbour di around the going-to location is on the 
                 // The MoVe is coming from NOT U (but COUPLED with the fact ur in this if statement means its gotta be u)       
                 //              AND the prio is greater or equal to u
-        if( nextMove != ((bitind>>0)&0x000000FF) && ((bitind>>8)&0x000000FF) >= pPrior ){
-            uGotLowPrio = 1u;   // USED in the case you are going to MOVE
-                                // if 1 in total -> ur good to MOVE
-                                    // NOTE* only gotta check this here because if it's a mvoe conflict when first ESTABLISHING this nextMove it would be
-                                        // discarded anyways - it only has to be checked on the moving frame
+        if( temPrio > bestPrioFound || bestPrioFound == 0u){ 
+            bestPrioFound = temPrio;
+            numOfBestPriosFound = 1u;
         }
-        // else if(  ) {// IF UR PRIORITY IS LOWER OR SAME AND ITS NOT URSELRF
-        //     uGotLowPrio = 1u;                   // USED in the
-        // }
-        
-        //uGotLowPrio
+        else if( temPrio == bestPrioFound ){//pPrior
+            numOfBestPriosFound = numOfBestPriosFound + 1u;
+        } 
+
     }
     i = i + 1u;
 }
+
  
-
-
-
 
 
 
@@ -600,6 +637,17 @@ loop {
     //      AND no other neibhgours have intentions on it
     if( di % 8u == 7u && otherIntentionsOnGoal == 0u ){
 
+        if( ( (iw>>(8u*(i%4))) & 0x000000FF ) > ( (tmpsmlExp>>(8u*(i%4))) & 0x000000FF ) ){
+            //if( i < 4 ){
+            //    deathYes = 1u;  // You will die...
+            //}
+            //else{
+            //    trans2Yes = 1u; // you get promoted by the 'radio waves'
+            //}
+            deathYes = 1u;  // You will die...
+            
+        }
+
 
         // Check the first 4 scents // = SLTINDX_STRT = 2u      // TODO use the inScent array you already gathered here instead of calling buffer again
         bitind = EZ_CELL_VAL( EZX, -1 + i32(iw%3u), EZY, -1 + i32(iw/3u), SLTINDX_STRT + 0u );
@@ -607,6 +655,9 @@ loop {
         godlyscnts = EZ_CELL_VAL( EZX, -1 + i32(iw%3u), EZY, -1 + i32(iw/3u), SLTINDX_STRT + 2u );
         //bitind    // is now the first 4 scents
         teamSigJoos = EZ_CELL_VAL( EZX, -1 + i32(iw%3u), EZY, -1 + i32(iw/3u), SLTINDX_STRT + 3u );// The last of 4 u32's -> path jooses
+
+        var waterLvl: u32 = EZ_CELL_VAL( EZX, -1 + i32(iw%3u), EZY, -1 + i32(iw/3u), SLTINDX_STRT + 4u + 1u );//(i/4) ); <- DANGER SCENT SLOTS 2
+        waterLvl = ((waterLvl >> 8) & 0x000000FF);
         
         currScScore = 0u;// RESET THIS?! I THINK?
         var desireOverideByFuncJooses: u32 = 0u;        // if every set to 1 then functino jooces desire override this
@@ -629,8 +680,11 @@ loop {
             //     currScScore = 9999u;
             // }
         }
-        else if( myDesire ==6u ){            // GO TO LEADER
+        else if( myDesire == 6u ){            // GO TO LEADER
             currScScore = (bitind >> 0) & 0x000000FF;   // Score the amount of leader scent here
+        }
+        else if( myDesire == 9u ){            // GO TO BP
+            currScScore = (bitind >> 24) & 0x000000FF;   // Score the amount of build scent here
         }
 
         // This mode needs real time values to trigger
@@ -679,6 +733,25 @@ loop {
                 }
             }
         }
+        // if DESIRE_SUPPORT  <- reinstate these values at the bottom if there is none
+        else if( myDesire == 10u ){
+            currScScore = max( currScScore, (naturalscnts >> 8) & 0x000000FF ); // the amount of support scent here
+        }
+        
+        // if DESIRE_METAL <- get that good stuff
+        else if( myDesire == 12u ){
+            currScScore = max( currScScore, (naturalscnts >> 24) & 0x000000FF ); // the amount of metal scent here
+        }
+        
+        // if DESIRE_DECAY
+        else if( myDesire == 14u ){
+            currScScore = max( currScScore, (naturalscnts >> 16) & 0x000000FF ); // the amount of decay scent here
+        }
+        
+        // if DESIRE_GAIAHOME
+        else if( myDesire == 15u ){ 
+            currScScore = max( currScScore, (godlyscnts >> 0) & 0x000000FF ); // the amount of gaiahome
+        }
 
         // Desire for WAR.....    OR protection (17)
         else if( (myDesire == 18 || myDesire == 17) && teamNumber > 0u ){           //TODO dont hardcod enubmer of fteams? (4)
@@ -703,8 +776,8 @@ loop {
                 }
             }
         }
-        //DESIRE_CIVILIZATION       AGGRO RES WORKER (RES )
-        else if( myDesire == 19 || myDesire == 16 ){
+        //DESIRE_CIVILIZATION    AGGRO RES WORKER (RES )  DESIRE_CLOSECIV |  MED CIV AWAY|AGGRO WORKER (DECAY)
+        else if( myDesire == 19 || myDesire == 16 || myDesire == 20 || myDesire == 21 || myDesire == 22 ){
             currScScore = max( currScScore, (teamSigJoos >> (((0)%4)*8)) & 0x000000FF );   // All the 4 team scents
             currScScore = max( currScScore, (teamSigJoos >> (((1)%4)*8)) & 0x000000FF );
             currScScore = max( currScScore, (teamSigJoos >> (((2)%4)*8)) & 0x000000FF );
@@ -719,62 +792,83 @@ loop {
                     currScScore = (bitind >> 8) & 0x000000FF;   // RESOURCE value
                 }
             }
+            // If curr team smell is too faint just delete
+            else if( myDesire == 20 ){
+                if( currScScore < 249){     // not enough civilizaiont scent
+                    currScScore = 0;
+                }
+            }
+            // If curr team smell is kinda close/med away
+            else if( myDesire == 21 ){
+                if( currScScore < 236){     // not enough civilizaiont scent
+                    currScScore = 0;
+                }
+            }
+            // Nearest decay or civilization
+            else if( myDesire == 22 ){
+                if( currScScore < 241){     // not enough civilizaiont scent
+                    currScScore = (naturalscnts >> 16) & 0x000000FF;   // DECAY value
+                }
+            }
         }
+
+        // SURFACE WATER PLAY ONLY...
+        else if( myDesire == 23 ){
+            if( waterLvl > 0u ){
+                currScScore = EZ_RAND_U( iw*pPrior + tesr + ( pPrior*183+ EZX*iw*2173 + EZY*iw*3397 ) );
+                currScScore = EZ_RAND_U( currScScore + iw*iw ) % 256;
+            }
+            
+
+        }
+
+
         // Chase orb and functional jooses try to match 
         // TODO somehow combine these functions with otoher desires? so some sensores pull them along 
-        else if( myDesire > 5 && myDesire < 9 && 2 > 5 ){
-            tii = 0u;
-            loop{
-                if tii >= 16 { break; }
-                if( tii % 8 == 0 ){     // roll over to next func joos profile
-                    funcJoos = EZ_STORAGE[ 14u + (tii/8u) + sct_start + (scentId * sct_chunk) ];
-                }
+        //else if( myDesire > 5 && myDesire < 9 && 2 > 5 ){
+        tii = 0u;
+        loop{
+            if tii >= 16 { break; }
+            if( tii % 8 == 0 ){     // roll over to next func joos profile
+                funcJoos = EZ_STORAGE[ 14u + (tii/8u) + sct_start + (scentId * sct_chunk) ];
+            }
 
-                bitind = (funcJoos >> ((tii%8u)*4u) ) & 0x0000000F;// Now bitind is the desired amount of this jooce
-                if( bitind > 0u ){      // If it's over 0 count it as relevant requirement
-                
-                    potBestJoos = EZ_CELL_VAL( EZX, -1 + i32(iw%3u), EZY, -1 + i32(iw/3u), FUNCINDX_STRT + (tii/8u) );
-                    potBestJoos = ( potBestJoos >> ((tii%8u)*4u) ) & 0x0000000F; // get the exact func joose value at this potenaitl best neighbour
+            bitind = (funcJoos >> ((tii%8u)*4u) ) & 0x0000000F;// Now bitind is the desired amount of this jooce
+            if( bitind > 0u ){      // MUST have some want for an F joose // If it's over 0 count it as relevant requirement
+            
+                potBestJoos = EZ_CELL_VAL( EZX, -1 + i32(iw%3u), EZY, -1 + i32(iw/3u), FUNCINDX_STRT + (tii/8u) );
+                potBestJoos = ( potBestJoos >> ((tii%8u)*4u) ) & 0x0000000F; // get the exact func joose value at this potenaitl best neighbour
+
+                if( potBestJoos > 0u){  // MUST have SOME PULL HERE TO OVERRIDE THE DEFAULT
                     if( bitind > potBestJoos ){     // if the desire is greater than the val
-                        currScScore = currScScore + 15u - ( bitind-potBestJoos );
+                        currScScore = 15u - ( bitind-potBestJoos );//currScScore + 
                     }
                     else{                       // The desire is smaller than or equal to the val
-                        currScScore = currScScore + 15u - ( potBestJoos-bitind );
+                        currScScore = 15u - ( potBestJoos-bitind );//currScScore + 
                     }
-
-                    // ^ now the CLOSER (hence 15u - dist ) to the value set by the scent desire the func chooses are, the higher the score
-                    
                 }
 
-                tii = tii + 1u;
+                // ^ now the CLOSER (hence 15u - dist ) to the value set by the scent desire the func chooses are, the higher the score
+                
             }
-            // bitind = EZ_CELL_VAL( EZX, -1 + i32(iw%3u), EZY, -1 + i32(iw/3u), FUNCINDX_STRT + 0u );
 
-            // 
+            tii = tii + 1u;
+        }
+        // bitind = EZ_CELL_VAL( EZX, -1 + i32(iw%3u), EZY, -1 + i32(iw/3u), FUNCINDX_STRT + 0u );
+
+        // 
+        //}
+
+        
+        // Needs water but no water
+        if( waterDesire > 0u && waterLvl <= std_max_water ){
+            currScScore = 0u;
+        }
+        // Needs land but water
+        else if( waterDesire < 1u && waterLvl >= std_max_water){
+            currScScore = 0u;
         }
  
-        // if DESIRE_SUPPORT  <- reinstate these values at the bottom if there is none
-        if( myDesire == 10u ){
-
-
-            currScScore = max( currScScore, (naturalscnts >> 8) & 0x000000FF ); // the amount of support scent here
-        }
-        // if DESIRE_METAL <- get that good stuff
-        else if( myDesire == 12u ){
-
-
-            currScScore = max( currScScore, (naturalscnts >> 24) & 0x000000FF ); // the amount of metal scent here
-        }
-        
-        // if DESIRE_DECAY
-        else if( myDesire == 14u ){
-            currScScore = max( currScScore, (naturalscnts >> 16) & 0x000000FF ); // the amount of decay scent here
-        }
-        
-        // if DESIRE_GAIAHOME
-        else if( myDesire == 15u ){ 
-            currScScore = max( currScScore, (godlyscnts >> 0) & 0x000000FF ); // the amount of gaiahome
-        }
     
 
         // Check if there's anything occupying this space as well... obviosuly 
@@ -844,14 +938,14 @@ loop {
 
 
 // we can update this valuenow no biggie (this is what it will be if the ent doesnt  change on this )
-pPrior = EZ_RAND_U( pPrior*pPrior + EZX*51 + counter + tesr + EZY*73 ) % 256;
+//pPrior = EZ_RAND_U( pPrior*pPrior + EZX*51 + counter + tesr + EZY*73 ) % 256;
 // and this has to be updated after all this cause pPrior is read by neighburing cells  //TODO <- verify this claim
 
 //   YOU ARE EMPTY SPACE =============================================
 // ------------------------------------------------------------------
 if( entityType == 0u || myStepable > 0u ){
     // RETRIEVE that one and copy its values into you
-    if( numOfStomprs == 1u ){
+    if( howManyBestPriosOnMe == 1u ){//numOfStomprs == 1u ){
         dx = -1 + i32(comingFromLoc%3u);           // X Value
         dy = -1 + i32(comingFromLoc/3u);           // Y Value
                     // DO NOT IMPLEMENT PHYSCS HERE....  i think..... // TODO IMPLEMENT PHYSICS TOUCHING HERE - ACCUMULATE TRANSFORMATION VALUES HERE
@@ -1016,7 +1110,7 @@ else{
     // Will activate the movement you have SET -> 
     // You are going somwhere AND 
     //      iT is STILL good to move there
-    else if( nextMove != 4u && (immintDestEntity & 1u) > 0 && movConflicts == 1u && uGotLowPrio == 0u ){ // Intension to move is still valid?
+    else if( nextMove != 4u && (immintDestEntity & 1u) > 0 && bestPrioFound == pPrior && numOfBestPriosFound == 1u ){ // Intension to move is still valid?
         
 
 
@@ -1213,7 +1307,7 @@ else{
             
             currGood = 0u;
             currBad = 0u;
-            currT1 = 0u;
+            //currT1 = 0u;
             currT2 = 0u; 
 
             //"teamNumber" is already set        // TODO verify this is the correct thing to do 
@@ -1227,7 +1321,22 @@ else{
 
 
             if( goodYes==1 ){
-                entityType = ( badGoodResult >> 0 ) & 0x0000FFFF;
+
+                // BP OVERRIDE 
+                if( isBp ){
+                    entityType = (currT1) % total_entities;//( badGoodResult >> 0 ) & 0x0000FFFF;
+
+                    // REMOVE TEAM IF NO ALLEGIANCE IS POSSIBLE w generated entity
+                    currT1 = EZ_STORAGE[ 0u + ent_start + (entityType * ent_chunk) ]; 
+                    if( ((1 << 2) & currT1) < 1 ){
+                        teamNumber = 0u;
+                    }
+                }
+                // Normal entity achieving its Trans1 transformation
+                else{
+                    entityType = ( badGoodResult >> 0 ) & 0x0000FFFF;
+                }
+
                 sfx_whichTrigg = 1;
             }
             else if( trans1Yes==1 ){
@@ -1238,6 +1347,10 @@ else{
                 entityType = ( transResult >> 16 ) & 0x0000FFFF;
                 sfx_whichTrigg = 4;
             }
+
+
+            currT1 = 0u;
+
         }
 
         // THIS IS DONE AT THE END -  if no entity - take awaay it's entity val
@@ -1254,6 +1367,10 @@ else{
 }
 
 
+
+// we can update this valuenow no biggie (this is what it will be if the ent doesnt  change on this )
+pPrior = EZ_RAND_U( pPrior*pPrior + EZX*51 + counter + tesr + EZY*73 ) % 256;
+// and this has to be updated after all this cause pPrior is read by neighburing cells  //TODO <- verify this claim
 
 
 
@@ -1325,6 +1442,16 @@ loop {
     else{
         outScents[ i ] = outScents[ i ] - tmpcrvl;      // subtract the deacay
     }
+
+    // IF THE PATH FINDING SCENT delete if water is here
+    if( i < 16 ){ 
+        // *** JUST THE PATHFIDNING SCENTS, DELETE IF THERE'S WATER
+        // APPLY special water kill
+        if( currWater == std_max_water ){//currWater > std_max_water ){
+            outScents[ i ] = 0u;
+        }
+    }
+    
 
     // APPLY emission (+/or if ALLEGIANCEd physics tag)
     tmpcrvl = ( crvl >> (8u*(i%4)) ) & 0x000000FF;      //-(((THIS IS THE OVERRIDE AREA WHERE TEAM SCENT GETS INJUECTED)))
@@ -1875,20 +2002,25 @@ if( EZ_USER_INPUT[6] > 0){
         //     EZ_STATE_OUT[ bufferInd2 ] = currGood; 
         //     EZ_STATE_OUT[ bufferInd3 ] = currT1; 
         // }
+
+        // SAFE game placement
         else if( ( EZ_USER_INPUT[4] == 2 && safePlacementConfirmed == 0u) ){
             EZ_STATE_OUT[ bufferInd0 ] = myState; 
             EZ_STATE_OUT[ bufferInd2 ] = currGood; 
             EZ_STATE_OUT[ bufferInd3 ] = currT1; 
         }
         else if( EZ_USER_INPUT[4] == 2 && safePlacementConfirmed == 1u ){
-            // IF DRAWING NOTHING - then auto set the team 
-            if( u32(EZ_USER_INPUT[5]) > 0){
+            var entSelectedToCreate: u32 = u32(EZ_USER_INPUT[5]);
+            if( entSelectedToCreate > 0){
                 cpuHook = 0;
                 snapExps= 0;
-                EZ_STATE_OUT[ bufferInd0 ] = u32(EZ_USER_INPUT[5]) | ( (last_team_sel & 0x000000FF) << 16 ) | ((cpuHook & 0x0000000F) << 24 ) | ((snapExps & 0x0000000F) << 28 ); // ADD FLAG IF      // Lat thing you clicked
+                EZ_STATE_OUT[ bufferInd0 ] = bp_ent_std1_val | ( (last_team_sel & 0x000000FF) << 16 ) | ((cpuHook & 0x0000000F) << 24 ) | ((snapExps & 0x0000000F) << 28 ); // ADD FLAG IF      // Lat thing you clicked
+
+                EZ_STATE_OUT[ bufferInd3 ] = entSelectedToCreate & 0x0000FFFFu;//0u;    // WHEN MKAING A BLUEPRITN, THE T1 POINTS IS THE ENTITY IT BECOMES
             }
             else{ 
-                EZ_STATE_OUT[ bufferInd0 ] = 0u; // just kille verything
+                EZ_STATE_OUT[ bufferInd0 ] = 0u;    // just killed everything
+                EZ_STATE_OUT[ bufferInd3 ] = 0u;    // reset T1 and T2 points to correct
             }
             
             nextMove = 4u;
@@ -1898,14 +2030,15 @@ if( EZ_USER_INPUT[6] > 0){
 
             // Reset the good / bad, traasm1. tams 2popinmts
             EZ_STATE_OUT[ bufferInd2 ] = 0u;
-            EZ_STATE_OUT[ bufferInd3 ] = 0u;
+            //EZ_STATE_OUT[ bufferInd3 ] = entSelectedToCreate & 0x0000FFFFu;//0u;    // WHEN MKAING A BLUEPRITN, THE T1 POINTS IS THE ENTITY IT BECOMES
 
             // THIS CASE (SAFE PLACEMENT IS EXACT COPY OF PLACEMENT MODE 3)
 
         }
+
+        // FORCE PLACE (CHEATING)
         else if( EZ_USER_INPUT[4] == 3){
-            
-            // IF DRAWING NOTHING - then auto set the team 
+             
             if( u32(EZ_USER_INPUT[5]) > 0){
                 cpuHook = 0;
                 snapExps= 0;

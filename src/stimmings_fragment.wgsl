@@ -9,7 +9,7 @@ var isDragging: u32 = u32(EZ_USER_INPUT[14]); //1 if the left mouse button is be
 var mouseToolMode: u32 = u32(EZ_USER_INPUT[4]); // 1= jut selecting, 3, is placing
 
 var SP_MAX_ENEMY_SCENT: u32 = 235u;// max enemy scent for a safe
-var SP_MIN_YOUR_SCENT:  u32 = 221u;// min ur own scent for safe placement
+var SP_MIN_YOUR_SCENT:  u32 = 243u;// min ur own scent for safe placement
 var SP_MIN_VIS: u32 = 21u;
  
 var time_of_day = u32(gametime) % DAY_LEN;//4096;//8192;//16384;//32768;//
@@ -19,6 +19,14 @@ daytime_f = daytime_f / DAY_LENf;//(GET HTE 0-1 time of day)
 
 var days_completed: u32 = u32(gametime) / DAY_LEN;
 
+// BP entities special case
+
+var bp_ent_std1_val: u32 = ${STAD.ent_stim_bp}u;
+var total_entities: u32 = ${FullEntEntries.length}u;
+var std_max_water: f32 = ${CL.STD_MAX_FORCE_B}f;
+
+var water_shallow: u32 = ${STAD.ent_water_shallow}u;
+
 // WEATHER SYSYEM::::::::::::::::::
 
 var cloudSize: f32 = 130f + sin(gametime/120f) * 20f;
@@ -27,7 +35,7 @@ var cloudSize: f32 = 130f + sin(gametime/120f) * 20f;
 
 var sessTeamNum: u32 = u32(abs(EZ_USER_INPUT[16])); // browser session's team number
 var safePlacement: u32 = 0u;    // if set to 1 then you can PLACE safely!
-var sessTeamWasArrived: u32 = 0u;
+var sessTeamWasArrived: u32 = 0u;   // if this browser had a team assigned to it (if 0 then it's a spectator!)
 if( sessTeamNum > 0u ){
     sessTeamWasArrived = 1u;
     sessTeamNum = sessTeamNum - 1u;
@@ -36,7 +44,7 @@ if( sessTeamNum > 0u ){
 
 var cloudAmountFromZoom: f32 = 0f;
 
-var cZoom: f32 = abs(EZ_USER_INPUT[9]); 
+var cZoom: f32 = abs(EZ_USER_INPUT[9]);
 // Wrap around for ZOOM in fact...
 var totalrgbs: f32 = cZoom * cZoom;
 var cZumU: u32 = u32( cZoom );
@@ -204,9 +212,15 @@ var counteSr: u32 = u32(gametime);
 
 var ENT_LOOKED = EZ_STORAGE[ 1u + ent_start + (entityType * ent_chunk) ];
 var ALLOWED_ORIENT = EZ_STORAGE[ 2u + ent_start + (entityType * ent_chunk) ];
+var steppableThing: u32 = (ALLOWED_ORIENT >> 16) & 0x000000FF;
+steppableThing = steppableThing & 1u;//just the first bit
 var SYNCEDANIM = (ALLOWED_ORIENT >> 16) & 0x2;
 var WINDANIM =   (ALLOWED_ORIENT >> 16) & 0x4;
 ALLOWED_ORIENT = (ALLOWED_ORIENT >> 24) & 0x000000FF;
+
+
+// BP PHANTOM OVERRIDE
+
 
 var badPoints = EZ_STATE_IN[ EZ_CELL_IND + 2u * EZ_TOTAL_CELLS];
 badPoints = (badPoints >> 16) & 0x0000FFFF;
@@ -286,13 +300,13 @@ else{
 }
 
 
-var softHighlight: u32 = 0;
+var softHighlight: bool = false;
 // Mouse is being dragged
 if( isDragging == 1u ){
 
     // Cell is inside and just hihglgihting
     if( insideX == 1 && insideY==1 ){
-        softHighlight = 1u;
+        softHighlight = true;
     }
 }
 
@@ -394,7 +408,7 @@ loop{
         tempi = ( (memval >> ( (i%4u)*8u) ) & 0x000000FF );
 
         
-        // HIJACK QUICKLY FOR CHECKING IF PROPER SAFE PALCEMENT
+        // HIJACK THIS LOOP QUICKLY FOR CHECKING IF PROPER SAFE PALCEMENT
         // WHILE YOURE HERE JUST DOUBLE CHECK IF TEAM SCENT IS ENOUGH FOR SAFE PLACE
         if( i > nScents - 4u - 1u ){
             if( tempi > SP_MIN_YOUR_SCENT && (i-12u) == sessTeamNum ){
@@ -478,10 +492,24 @@ loop{
     //resScent = max(0, 1 - (1-resScent/255f)*63 );
 
 
-    var thisPixBg: u32 = 0;
+    // INTERMISSION JUST TO GRAB THE MINIMUM VISION VALUE TO SEE IF SAFE PALCE ALLOWED ORNOT
+    // QUICK OVERRIDE - JUST CHECK IF STEPPABLE IS HIDDEN BY OCEAN
+    startOcells = 8u;
+    // This is the next set of util scents - used for LIGHTS? i guess
+    var memeval = EZ_STATE_IN[EZ_CELL_IND + (startOcells + 1)*EZ_TOTAL_CELLS];
+    var waterValue: f32 = f32( ((memeval >> ((1%4u)*8u)) & 0x000000FF) );
+
+
+
+    var thisPixBg: bool = false;     // flag to determine if this pixel is part of the backgroudn
+    
+    var seaHideStpble: bool = false;
+    if( steppableThing == 1u && waterValue > std_max_water ){
+        seaHideStpble = true;
+    }
     if (entityType > 0u) {
 
-        if( animOneWay > 0 ){ 
+        if( animOneWay > 0 ){
             animFrame = animStart + min( ((trans1Popints)/(animFreq)), animSize-1 );// WAS badPoints//((trans1Popints)/(animFreq)) % animSize ;
         }
         else{
@@ -577,29 +605,33 @@ loop{
         }
         var alpha: u32 = (colorVec >> 24) & 0xFF;
 
-        var colorFromPix: u32 = 0u;
-        if(alpha == 254 && teamNumber > 0u ){           //<--  APPLY team colour!
+        var colorFromPix: bool = false;
+        if(alpha == 254 && teamNumber > 0u && seaHideStpble == false ){           //<--  APPLY team colour!
             gottenR = f32(colorVec & 0xFF) / 255.0;
             gottenR = gottenR + (teamColsHighlts[ teamNumber ].x - gottenR) * 0.59f;
             gottenG = f32((colorVec >> 8) & 0xFF) / 255.0;
             gottenG = gottenG + (teamColsHighlts[ teamNumber ].y - gottenG) * 0.59f;
             gottenB = f32((colorVec >> 16) & 0xFF) / 255.0;
             gottenB = gottenB + (teamColsHighlts[ teamNumber ].z - gottenB) * 0.59f;
-            colorFromPix = 1;
+            colorFromPix = true;
         }
-        else if( alpha > 0 ){    // TODO change to 253 and under, 254 means it needs it team colours to com through 
+        else if( alpha > 0 && seaHideStpble == false ){    // TODO change to 253 and under, 254 means it needs it team colours to com through 
             gottenR = f32(colorVec & 0xFF) / 255.0;
             gottenG = f32((colorVec >> 8) & 0xFF) / 255.0;
             gottenB = f32((colorVec >> 16) & 0xFF) / 255.0;
-            colorFromPix = 1;
+            colorFromPix = true;
         }
         else{
-            thisPixBg = 1;
+            thisPixBg = true;
         }
+
+
+        
+
 
 
         // If highlighted apply some filters
-        if(softHighlight == 1 && colorFromPix == 1){
+        if(softHighlight && colorFromPix){
             
             // Using for selection
             if(  mouseToolMode == 1 ){
@@ -623,7 +655,7 @@ loop{
 
 
         // Add the DayTIme SHining notif
-        
+        // Morning morning MORNING time bell
         // SHINING effect from day start glow
         if( time_of_day > daytimeTrigger && time_of_day < daytimeTrigger + 172 ){
             // The effect lasts time
@@ -645,12 +677,11 @@ loop{
 
 
 
-    // INTERMISSION JUST TO GRAB THE MINIMUM VISION VALUE TO SEE IF SAFE PALCE ALLOWED ORNOT
-    startOcells = 8u;
     var visionValue: f32 = 0f;
     var explValue: f32 = 0f;
     var elecValue: f32 = 0f;
     var radiValue: f32 = 0f;//radiation value
+    //var bluetValue: f32 = 0f;//bluetooth value 
 
     var firstLight: f32 = 0f;
 
@@ -665,9 +696,8 @@ loop{
 
 
 
-
     // A certified back ground pixel or no entity at all her
-    if( thisPixBg == 1u || entityType < 1u ){
+    if( thisPixBg || entityType < 1u ){
          
         var tBgX: u32 = (EZX%128) * 16 + cmprsX; 
 
@@ -679,15 +709,10 @@ loop{
 
         // If more than one scent found here (NOT!),
         //      AND   Depending on render mode maybe dont ebeven disapyl the agoten
-        if( rMode == 0u ){     //allScentsPresentAtAll < 1f || 
-
+        if( rMode == 0u ){     //allScentsPresentAtAll < 1f ||
             gottenR = f32(bgPix & 0xFF) / 255f;         //0f;
             gottenG = f32((bgPix >> 8) & 0xFF) / 255f;
-            gottenB = f32((bgPix >> 16) & 0xFF) / 255f; 
-
-           // gottenR = 21f / 255f;
-           // gottenG = 23f / 255f;
-           // gottenB = 26f / 255f;
+            gottenB = f32((bgPix >> 16) & 0xFF) / 255f;
         }
         // For GLOW
         else if(rMode == 1u){
@@ -695,30 +720,81 @@ loop{
             gottenG -= (gottenG  - (f32((bgPix >> 8) & 0xFF)/255f))  * ( 0.45*scentsRawSumTotal );//refinedSCentsSumTotal
             gottenB -= (gottenB  - (f32((bgPix >> 16) & 0xFF)/255f)) * ( 0.45*scentsRawSumTotal );//refinedSCentsSumTotal
         }
-        // For crounge
+        // For team displacements
         else if(rMode == 2u){
-
-            //if(entityType == 0 && safePlacement == 5u && sessTeamWasArrived > 0u ){ //also include if correct
-            if(entityType > 0u){
+            // if(entityType == 0 && safePlacement == 5u && sessTeamWasArrived > 0u ){ //also include if correct
+            if(teamNumber > 0u){//entityType > 0u && 
                 gottenR = teamColsHighlts[teamNumber].x;
                 gottenG = teamColsHighlts[teamNumber].y;
                 gottenB = teamColsHighlts[teamNumber].z;
-
             }
-            // // also throw in if good to build
-            // else if(entityType == 0u &&safePlacement == 5u && sessTeamWasArrived > 0u){
-            //     gottenR += (1f - gottenR) * 0.45f;
-            //     gottenG += (1f - gottenG) * 0.45f;
-            //     gottenB += (1f - gottenB) * 0.45f;
-            // }
-            // // invalid for safe placement of blocks - so just show the normal SCHMORGESBORG OF SCENTS
-            // else{
-            //     gottenR -= ( gottenR - (f32( bgPix & 0xFF)/255f)          ) * 0.62; 
-            //     gottenG -= ( gottenG - (f32((bgPix >> 8) & 0xFF)/255f)    ) * 0.62;
-            //     gottenB -= ( gottenB - (f32((bgPix >> 16) & 0xFF)/255f)   ) * 0.62;
-            // }
+            else{
+                // Normal rMode == 0 backgroudn texture
+                gottenR = f32(bgPix & 0xFF) / 255f;
+                gottenG = f32((bgPix >> 8) & 0xFF) / 255f;
+                gottenB = f32((bgPix >> 16) & 0xFF) / 255f;
+            }
+        }
 
 
+        if( waterValue > 0f ){
+
+            // Normalized water val
+            var nomrwater: f32 = waterValue / 255f;
+            var water_depth_col: f32 = min( 1f, nomrwater * 13f );
+
+            nomrwater *= 140f;
+            nomrwater = min( 1f, nomrwater );
+
+            // water col desired  ->   LIGHT BLUE           // DARK BLUE
+            var watrR: f32 = (1.0f - water_depth_col) * 0.7f + water_depth_col * 0.0f;
+            var watrG: f32 = (1.0f - water_depth_col) * 0.9f + water_depth_col * 0.0f;
+            var watrB: f32 = (1.0f - water_depth_col) * 1.0f + water_depth_col * 0.5f;
+
+            // Can water do damage to average land dwelling entity?
+            if( waterValue > std_max_water ){
+            
+                // Wave value offsetes
+                var off1: f32 = 3f + sin(f32(cmprsX + EZY_R*9001u + EZX_R*188u) * 0.4f +   gametime * 0.33f) * sprt_sizfe * 0.14f;
+                var off2: f32 = 8f + sin(f32(cmprsX + EZY_R*701u +  EZX_R*998u) * 0.37f +  gametime * 0.43f) * sprt_sizfe * 0.2f;
+                var off3: f32 = 12f+ sin(f32(cmprsX + EZY_R*2433u + EZX_R*512u) * 0.25f +  gametime * 0.23f) * sprt_sizfe * 0.14f;
+                var wavecol: f32 = sin(f32( EZY_R*9001u + EZX_R*888u + cmprsX) * 0.25f +  gametime * 0.23f) * 0.054f;
+                
+                if( (cmprsfY > off1 && cmprsfY < off1+1.1f) || (cmprsfY > off2 && cmprsfY < off2+1.1f) || (cmprsfY > off3 && cmprsfY < off3+1.1f) ){
+                    watrR = 0.9f + wavecol;
+                    watrG = 0.9f + wavecol;
+                    watrB = 0.9f + wavecol;
+                }
+            }
+            else{
+                // Shimmering ish of the shallow water
+                watrR += sin(f32(cmprsX + EZY_R*9001u + EZX_R*188u) * 0.4f +   gametime * 0.33f) * 0.04f;
+                watrG += sin(f32(cmprsX + EZY_R*9001u + EZX_R*188u) * 0.4f +   gametime * 0.33f) * 0.04f;
+                watrB += sin(f32(cmprsX + EZY_R*9001u + EZX_R*188u) * 0.4f +   gametime * 0.33f) * 0.04f;
+            }
+            gottenR += (watrR - gottenR) * nomrwater;
+            gottenG += (watrG - gottenG) * nomrwater;
+            gottenB += (watrB - gottenB) * nomrwater;
+        }
+
+
+        
+
+
+        // NO MATTER WHAT if on 'BUILD TOOL' show where's ok to place:
+        // HELPFUL indicator can build or not
+        // SHOW IF GOOD TO BUILD OR NOT
+        if(mouseToolMode == 2u){
+            if(entityType == 0u && safePlacement == 5u && sessTeamWasArrived > 0u){
+                gottenR += (0f - gottenR) * 0.23f;
+                gottenG += (1f - gottenG) * 0.23f;
+                gottenB += (0f - gottenB) * 0.23f;
+            }
+            else{
+                gottenR += (1f - gottenR) * 0.23f;
+                gottenG += (0f - gottenG) * 0.23f;
+                gottenB += (0f - gottenB) * 0.23f;
+            }
         }
         
     }
@@ -747,7 +823,7 @@ loop{
 
 
     // Just draggin the selectino box over entity - this takes all the stuff  in the cell (so even if no sprites are on the cell it will chagne the col of the )
-    if(softHighlight == 1){
+    if(softHighlight){
         
         // Hihgliting stuff
         if( mouseToolMode == 1){
@@ -764,8 +840,6 @@ loop{
         }
         // Safe placing stuff (NON-CHEAT)
         else if( mouseToolMode == 2){
-
-
             // Need to double check what team u can draw on 
             // TODO note that if a session does not have a team number it cant interact (SPECTATOR MODE)
             if( sessTeamWasArrived > 0u ){
@@ -831,9 +905,12 @@ loop{
         // gottenB += cos(f32(gametime) * 0.05) * (f32(tempi) / 255.0);
     }
   
-    // This is the next set of util scents - used for LIGHTS? i guess
-    memval = EZ_STATE_IN[EZ_CELL_IND + (startOcells + 1)*EZ_TOTAL_CELLS];
-    tempi = ((memval >> ((0%4u)*8u)) & 0x000000FF);
+    
+
+    // For waves
+    //Math.floor(Math.sin(xxx/8)*7+Math.cos(yyy/8)*10);
+
+    //bluetValue = f32( tempi );
 
     // REMINDER: this goes through every cell NOT Component (16x16 of them in a cell (at least in Stimmings 2))
     // Go through... area (ur still in the LOOP) so can do PIXEL?!
@@ -969,6 +1046,8 @@ loop{
 
 
 
+
+
     // If there is one positive hit line
     if( totalLineTypes > 0f && rMode > 0u ){
         gottenR = funcLineR / totalLineTypes;
@@ -1034,7 +1113,6 @@ loop{
                 cds = 0;
             }
             
-
             gottenR += (daycol.x - gottenR) * cds;// + ( sin(gametime*0.04f) * (1f - cds)* EZ_RAND( EZX*u32(gametime) * EZY*1271u));
             gottenG += (daycol.y - gottenG) * cds;// + ( sin(gametime*0.04f) * (1f - cds)* EZ_RAND( EZX*u32(gametime) * EZY*1271u));
             gottenB += (daycol.z - gottenB) * cds;// + ( sin(gametime*0.04f) * (1f - cds)* EZ_RAND( EZX*u32(gametime) * EZY*1271u));
@@ -1117,7 +1195,7 @@ loop{
     // cmprsX
     // cmprsY
     // gametime 
- 
+    safePlacement = 0u; // reset this?! 
 
     zi = zi + 1u;
 }

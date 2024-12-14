@@ -24,6 +24,10 @@ var Ex9_Stimmings2 = ( ) => {
 ALL_ENTS = EntEntries;
 ALL_IMGS = spriteb64s;
 ALL_FULLENTS = FullEntEntries;
+ 
+ALL_SCENTS = scentprofs;
+ALL_DMGS = dmgprofs; 
+
 
     let computeWGSL = 
 `
@@ -244,7 +248,7 @@ ALL_FULLENTS = FullEntEntries;
             if( GET_ENT_FROM_LAST_CLICK ){
                 let vdam = lastMouseXDRX + (lastMouseYDRY+1) * SFXBUFFERSIZE; //SFXBUFFERSIZE - 
 
-                if( lastMouseXDRX >= EZ_EXAMPLE.SFX_BUFFER_SIZE_LENGTH-1  || lastMouseYDRY >= EZ_EXAMPLE.SFX_BUFFER_SIZE_LENGTH-1){
+                if( lastMouseXDRX >= EZ_EXAMPLE.SFX_BUFFER_SIZE_LENGTH-1 || lastMouseYDRY >= EZ_EXAMPLE.SFX_BUFFER_SIZE_LENGTH-1 ){
                     addToConsole( 'the ' + lastMouseXDRX + ' or ' + lastMouseYDRY+ ' is bigger than ' + EZ_EXAMPLE.SFX_BUFFER_SIZE_LENGTH +
                         '  |||| ' + Math.floor(EZ_EXAMPLE.step/EZ_EXAMPLE.stepsPerDay), { color: 'red', noRemove: true });
                     playSound( -1, STAD[''+'sfx_metal_ting3'][2], ((EZ_EXAMPLE.step*119) % 28) );
@@ -269,9 +273,9 @@ ALL_FULLENTS = FullEntEntries;
 
                     if (targetElement) {
 
-                        if(!SHOWINGHUD){
-                            switchHud();
-                        }
+                        //if(!SHOWINGHUD){
+                        //    switchHud();
+                        //}
                         // Scroll the parent to center the target element
                         const parentRect = parentElement.getBoundingClientRect();
                         const targetRect = targetElement.getBoundingClientRect();
@@ -289,9 +293,16 @@ ALL_FULLENTS = FullEntEntries;
                             targetElement.style.backgroundColor = ""; // Reset to original background
                         }, 750); // 1 second flash duration
 
+                        LAST_CLICKED_ENT = Number(idToFind);
+                        CURRENT_TOOL = 2;
+                        EZ_EXAMPLE.liveInput[4] = CURRENT_TOOL;
+
                         // Simulate a click on the element
-                        //targetElement.click();
-                        handleItemClick( idToFind, null );
+                        //handleItemClick( idToFind, null );
+                        //  ^DISABLED now because new inspector
+
+                        showInfoCard( idToFind )
+
                         // Reset this to 1 again because the fake click ^ sets it to 3
                         LAST_CLICKED_ENT = idToFind;
                         CURRENT_TOOL = 1;
@@ -417,11 +428,26 @@ ALL_FULLENTS = FullEntEntries;
     else{
         let NUM_OF_RANOMD_STRUCTS = 300;
         let NUM_OF_FOLIAGE_SPOTS = 111; 
-        STIMMINGS_MAP_GEN.perlin_W_TightWinding(
-            EZWG.SHA1, initialState, glength, attlength, 
-            NUM_OF_RANOMD_STRUCTS, 
-            NUM_OF_FOLIAGE_SPOTS
-        );
+
+        if( LAST_MAP_CONFIG_SELECTED === 0 ){
+            STIMMINGS_MAP_GEN.perlin_W_TightWinding(
+                EZWG.SHA1, initialState, glength, attlength, 
+                NUM_OF_RANOMD_STRUCTS, 
+                NUM_OF_FOLIAGE_SPOTS
+            );
+        }
+        else if( LAST_MAP_CONFIG_SELECTED === 1) {
+            STIMMINGS_MAP_GEN.territoryPartition(
+                EZWG.SHA1, initialState, glength, attlength,
+                NUM_OF_RANOMD_STRUCTS, 
+                NUM_OF_FOLIAGE_SPOTS
+            );
+        }
+
+        
+
+        
+        
         
         //STIMMINGS_MAP_GEN.blankNuffin( EZWG.SHA1, initialState, glength, attlength,  NUM_OF_RANOMD_STRUCTS,  NUM_OF_FOLIAGE_SPOTS );
         console.log("NEW MAP FINE W ME");

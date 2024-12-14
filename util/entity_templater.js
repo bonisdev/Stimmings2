@@ -35,13 +35,13 @@ function NU_RES_ENT( entNameVariable, miobj, amtOfRes, frameTime, animationMode 
     NU_ENT( ""+entNameVariable, [
         ""+miobj.n,                                              //Names
         ""+miobj.d,                                              //Desc
-        ["sfx_pang", "", "", ""],                                       // Sounds
+        ["sfx_phit_ting", "", "", ""],                                       // Sounds
         ""+miobj.animpckge,                                                 // Animation package
         PHYS.PHYSICS_RES,                                     // Physics flags of the entity
         EZWG.createPackedU32_16( EZWG.createPackedU16_8(STAD[""+miobj.animpckge][2], frameTime), STAD[""+miobj.animpckge][1] ),  // animSize, animFreq, animStart (16 bytes)
         EZWG.createPackedU32( 0, ( animationMode.sync?(0^CL.DESYNC_ANIM_BIT):(0) ) + (animationMode.wind?4:0), CL.FREQ_VFAST, DESIR.DESIRE_NOTHING ),// Flippaleprofile, [0x4bit for wind 0x2 bit (0=desynced, 1=synced animations) steppable=0(1=yes)], MoveFreq, Desire
         
-        EZWG.createPackedU32_16( 0, STAD.scnt_res_block ),                    //  Damage Profile ID (max of 65535),Scent Profile ID (max of 65535),
+        EZWG.createPackedU32_16( animationMode.waterfloat?(STAD.dmg_wall_water_proof):0, STAD.scnt_res_block ),                    //  Damage Profile ID (max of 65535),Scent Profile ID (max of 65535),
     
         PHYS.PHYSICS_MINER | PHYS.PHYSICS_HOMEBASE,                    // Goodness from profile
         PHYS.PHYSICS_RES_WORKER | PHYS.PHYSICS_MINER | PHYS.PHYSICS_HOMEBASE,  // Badness from profile, 
@@ -65,7 +65,7 @@ function NU_RES_ENT( entNameVariable, miobj, amtOfRes, frameTime, animationMode 
                                                             // 0 = self transofmr, 1 = random direction spawn, 2=random direction spawn NO TEAM,     3 = inherit velocity..., 4=damage yurself on spawn from OWN power
     
         EZWG.createPackedU32( 0, 0, 0, 0 ),              //  -ONE Shot or not (1 yes, 0 is cummulatibve)
-        EZWG.createPackedU32_16( 0, 0 ),            // ??? idk ??, drop value every move
+        EZWG.createPackedU32_16( Math.floor(Math.ceil(amtOfRes/CL.PROD_STIM_HOME)*2), 0 ),            // BP build cost, drop value every move
     
     ]);
 }
@@ -104,7 +104,7 @@ function NU_DECAY_ENT( entNameVariable, miobj, amtOfRes, frameTime, animationMod
                                                             // 0 = self transofmr, 1 = random direction spawn, 2=random direction spawn NO TEAM,     3 = inherit velocity..., 4=damage yurself on spawn from OWN power
     
         EZWG.createPackedU32( 0, 0, 0, 0 ),              //  -ONE Shot or not (1 yes, 0 is cummulatibve)
-        EZWG.createPackedU32_16( 0, 0 ),            // ??? idk ??, drop value every move
+        EZWG.createPackedU32_16( CL.BP_STD_BUILD_COST, 0 ),            // BP build cost, drop value every move
     
     ]);
 }
@@ -142,7 +142,7 @@ function NU_JOLT_RECEIVER( entNameVariable, miobj, destinationEntity, frameTime,
                                                             // 0 = self transofmr, 1 = random direction spawn, 2=random direction spawn NO TEAM,     3 = inherit velocity..., 4=damage yurself on spawn from OWN power
     
         EZWG.createPackedU32( 0, 0, 0, 0 ),              //  -ONE Shot or not (1 yes, 0 is cummulatibve)
-        EZWG.createPackedU32_16( 0, 0 ),            // ??? idk ??, drop value every move
+        EZWG.createPackedU32_16( CL.BP_STD_BUILD_COST, 0 ),            // BP build cost, drop value every move
     
     ]);
 
@@ -184,7 +184,7 @@ function NU_HOSTILE_GAIA( entNameVariable, miobj, frameTime, deathOset, healthh,
                                                             // 0 = self transofmr, 1 = random direction spawn, 2=random direction spawn NO TEAM,     3 = inherit velocity..., 4=damage yurself on spawn from OWN power
     
         EZWG.createPackedU32( 0, 0, 0, 0 ),              //  -ONE Shot or not (1 yes, 0 is cummulatibve)
-        EZWG.createPackedU32_16( 0, 0 ),            // ??? idk ??, drop value every move
+        EZWG.createPackedU32_16( CL.BP_STD_BUILD_COST, 0 ),            // BP build cost, drop value every move
     
     ]);
 
@@ -224,7 +224,7 @@ function NU_WALL_ENT( entNameVariable, miobj, amtOfHealth, frameTime, deathEntit
                                                             // 0 = self transofmr, 1 = random direction spawn, 2=random direction spawn NO TEAM,     3 = inherit velocity..., 4=damage yurself on spawn from OWN power
     
         EZWG.createPackedU32( 0, 0, 0, 0 ),              //  -ONE Shot or not (1 yes, 0 is cummulatibve)
-        EZWG.createPackedU32_16( 0, 0 ),            // ??? idk ??, drop value every move
+        EZWG.createPackedU32_16( CL.BP_STD_BUILD_COST, 0 ),            // BP build cost, drop value every move
     
     ]);
 
@@ -277,7 +277,7 @@ function NU_TRANSFORM_ENT( entNameVariable, miobj, frameTime, transformTo, succe
                                                             // 0 = self transofmr, 1 = random direction spawn, 2=random direction spawn NO TEAM,     3 = inherit velocity..., 4=damage yurself on spawn from OWN power
     
         EZWG.createPackedU32( 0, 0, 0, 0 ),              //  -ONE Shot or not (1 yes, 0 is cummulatibve)
-        EZWG.createPackedU32_16( 0, 0 ),            // ??? idk ??, drop value every move
+        EZWG.createPackedU32_16( CL.BP_UNN_BUILD_COST, 0 ),            // BP build cost, drop value every move
     
     ]);
 
@@ -319,7 +319,7 @@ function NU_VISUAL_ENT( entNameVariable, miobj, frameTime ){
                                                             // 0 = self transofmr, 1 = random direction spawn, 2=random direction spawn NO TEAM,     3 = inherit velocity..., 4=damage yurself on spawn from OWN power
     
         EZWG.createPackedU32( 0, 0, 0, 0 ),              //  -ONE Shot or not (1 yes, 0 is cummulatibve)
-        EZWG.createPackedU32_16( 0, 0 ),            // ??? idk ??, drop value every move
+        EZWG.createPackedU32_16( CL.BP_STD_BUILD_COST, 0 ),            // BP build cost, drop value every move
     
     ]);
 
@@ -362,7 +362,7 @@ function NU_STOMPABLE_ENT( entNameVariable, miobj, animFrequ, exactScentId, anim
                                                             // 0 = self transofmr, 1 = random direction spawn, 2=random direction spawn NO TEAM,     3 = inherit velocity..., 4=damage yurself on spawn from OWN power
 
         EZWG.createPackedU32( 0, 0, 0, 0 ),                 //  -ONE Shot or not (1 yes, 0 is cummulatibve)
-        EZWG.createPackedU32_16( 0, 0 ),                    // ??? idk ??, drop value every move
+        EZWG.createPackedU32_16( CL.BP_STD_BUILD_COST, 0 ),                    // BP build cost, drop value every move
 
     ]);
 }

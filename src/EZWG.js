@@ -169,7 +169,7 @@ class EZWG {
 
         this.SFX_BUFFER_SIZE = 128*128;
         this.SFX_BUFFER_SIZE_LENGTH = 128;
-        this.loaded = false;1
+        this.loaded = false;
         this.paused = false;
         this.placeByTheRules = true;
 
@@ -653,7 +653,12 @@ class EZWG {
         // Normal vertices (clunky)
 
 
-                // TODO the CURRENT_ZOOM  DOES NOT EFFECT VERTEX MODE 
+        // TODO the CURRENT_ZOOM  DOES NOT EFFECT VERTEX MODE 
+
+
+
+
+            
 
         if( !this.FRAG_PIXEL_MODE ){
             cellShaderWSGL = `
@@ -1084,7 +1089,37 @@ class EZWG {
 
 
 
+        /////   TO USE__________________________
+     
 
+        //fn TRIPLEInit1(x: u32) -> u32 {
+        //    var result = x;
+        //    result ^= result >> 16u;
+        //    result *= 0x7feb352d;
+        //    result ^= result >> 15u;
+        //    result *= 0x846ca68b;
+        //    result ^= result >> 16u;
+        //    return result;
+        //} 
+        //fn TRIPLEInit2(x: u32) -> u32 {
+        //    var result = x;
+        //    result ^= result >> 17u;
+        //    result *= 0xed5ad4bb;
+        //    result ^= result >> 11u;
+        //    result *= 0xac4c1b51;
+        //    result ^= result >> 15u;
+        //    result *= 0x31848bab;
+        //    result ^= result >> 14u;
+        //    return result;
+        //} 
+        //fn TRIPLENext(seed: u32) -> u32 {
+        //    return (1664525u * seed + 1013904223u);
+        //} 
+        //fn TRIPLERandF01(seed: u32) -> f32 {
+        //    return f32(seed) / f32(0xffffffffu);
+        //}
+
+ 
 
 
 
