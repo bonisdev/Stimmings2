@@ -752,6 +752,36 @@
             font-size: 22px;
         }
 
+        #ownedEyeDropWarning{
+            background-color: #010b07;
+            color:#fcf6f6;
+            max-width: 270px;
+            font-size: 20px;
+            border-radius: 5px;
+            padding: 14px;
+        }
+
+        .highltedtem{
+            background-color: #1c0609;
+            font-size: 24px;
+        }
+
+        .exactteamcol0{
+            color: rgb(255, 255, 255);
+        }
+        .exactteamcol1{
+            color: rgb(0, 0, 255);
+        }
+        .exactteamcol2{
+            color: rgb(255, 0, 0);
+        }
+        .exactteamcol3{
+            color: rgb(0, 255, 0);
+        }
+        .exactteamcol4{
+            color: rgb(255, 255, 0);
+        } 
+
     </style>
 	<link rel="shortcut icon" type="image/x-icon" href="src/largeking.ico">
 </head>
@@ -1035,6 +1065,7 @@
         <img id="tool0" src="util/controlicons/eyedroppericon.png" class="tooltip-just-img hidden" tabindex="-1" draggable="false" alt="Tool 0">
         <img id="tool1" src="util/controlicons/buildicon.png" class="tooltip-just-img hidden" tabindex="-1" draggable="false" alt="Tool 1">
         <img id="tool2" src="util/controlicons/cameraicon.png" class="tooltip-just-img hidden" tabindex="-1" draggable="false" alt="Tool 2">
+        <div id="ownedEyeDropWarning" class="tooltip-just-img hidden" tabindex="-1" draggable="false"></div>
 
     </div>
 
@@ -1097,6 +1128,7 @@
             document.getElementById('tool1'),
             document.getElementById('tool2'),
         ];
+        var eyeDropOwnershipWarning = document.getElementById('ownedEyeDropWarning');
         var toolTimeout = null;
 
         
@@ -1506,6 +1538,10 @@
             let moveSpeed = extractMovementFreq( ent[6] );
 
             let desireGoal = extractDesireDesc( ent[6] );
+ 
+            let stayinPut = desireGoal === "Stationary";
+ 
+
 
             let externalids = ent[7] >>> 0;
 
@@ -1591,7 +1627,7 @@
                 <div class="profile-description">
                     <h2>${ent[0]}</h2>
                     <p>${ent[1]}</p>
-                    <p class="live-hover" data-tooltip="Entity moves on average once every this amount of frames (lower number means faster)"><b>Speed:</b> ${moveSpeed}</p>
+                    <p class="live-hover" data-tooltip="Entity moves on average once every this amount of frames (lower number means faster)"><b>Speed:</b> ${stayinPut?("-N/A-"):(moveSpeed)}</p>
                     <p><b>Goal:</b> ${desireGoal}</p> 
                     <p class="live-hover" data-tooltip="How adjacent entities interpret this entity"><u>Physics Profile:</u></p>
                     <p>${getPhysicsProfile(ent[4])}</p>
@@ -2032,7 +2068,8 @@ var EntEntries = [
                 // Add click event listener
                 listItem.addEventListener('click', () => {
                     LAST_CLICKED_ENT = Number(f);
- 
+
+                    
 
                     // Check if it's gonna be a ruleful place or a CHEAT
                     if( EZ_EXAMPLE.placeByTheRules === true ){
@@ -2212,7 +2249,7 @@ var EntEntries = [
 
             // "GOAL: "
             if( desirVal === DESIR.DESIRE_NOTHING ){
-                return "Stay put"
+                return "Stationary"
             }
             else if( desirVal === DESIR.DESIRE_WANDER ){
                 return "Wander"
@@ -2414,9 +2451,12 @@ var EntEntries = [
         var CURRENT_ZOOM = 8;
         var CURRENT_RMODE = 0;
 
-        var CURRENT_TEAM_SEL = 0;
+        var CURRENT_TEAM_SEL = 0;   // SELECTED IN THE UI lIKE WHEN YOU'RE IN ADMIN/CHEAT MODE 
 
         var MOUSE_JUST_PRESSED = false;
+
+        var LAST_ENT_TEAM_SELECTED = 0;//1,2,3,4
+        var LAST_ENT_SELECTED_HAS_ALLEG = false;// if entity also has allegiance to give
 
         var CURRENT_PAN_X = 0;
         var CURRENT_PAN_Y = 0;
@@ -3278,6 +3318,15 @@ var EntEntries = [
                 toolImages[0].classList.add('hidden');
                 toolImages[1].classList.remove('hidden');
                 toolImages[2].classList.add('hidden');
+
+                if( CURRENT_TOOL === 2 && LAST_ENT_SELECTED_HAS_ALLEG && LAST_ENT_TEAM_SELECTED !== CURRENT_SESSION_PLAYER_ID ){   // ADD OWNERSHIP WARNING IF IT NEEDS IT
+                    eyeDropOwnershipWarning.innerHTML = `<p> * entity requires your session's team <span class="highltedtem exactteamcol${CURRENT_SESSION_PLAYER_ID}">  ( ${CURRENT_SESSION_PLAYER_ID} ) </span> to make blueprints</p>`;
+                    eyeDropOwnershipWarning.classList.remove('hidden');
+                }
+                else{
+                    eyeDropOwnershipWarning.classList.add('hidden');
+                }
+
             }
             else if( CURRENT_TOOL === 4) {
                 toolImages[0].classList.add('hidden');
@@ -3291,6 +3340,7 @@ var EntEntries = [
                 toolTimeout = setTimeout(() => {
                     toolImages.forEach(img => (img.classList.add('hidden')));
                     //MOUSETOOL = -1; // Reset tool selection
+                    eyeDropOwnershipWarning.classList.add('hidden');
                 }, 2000);
             //}
         }

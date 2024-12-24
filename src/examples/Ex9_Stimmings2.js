@@ -192,7 +192,7 @@ ALL_DMGS = dmgprofs;
                 if( xx < xem && yy < yem ){
                     let valm = entireBuffer[bn];
                     let entt = (valm >> 0) & 0x0000FFFF;
-                    valm = (valm >> 16) & 0x0000FFFF; 
+                    valm = (valm >> 16) & 0x000000FF; 
                     // If value is stepp on
                     if(valm > 0 && entt > 0){//  && valm !==5
                         if(hits['entt'+entt]){
@@ -224,7 +224,7 @@ ALL_DMGS = dmgprofs;
                                 addToConsole( 'sfx: '+ STAD[''+songs[i]][0], { slowFade: true });
                             }
                             
-                            playSound( -1, STAD[''+songs[i]][2], ((EZ_EXAMPLE.step*119) % 28) );
+                            playSound( -1, STAD[''+songs[i]][2], ((EZ_EXAMPLE.step*119) % 43) - 10 );
                         }
                     }
 
@@ -257,6 +257,14 @@ ALL_DMGS = dmgprofs;
                     let valm = entireBuffer[vdam];
                     let entt = ( valm >> 0 ) & 0x0000FFFF;
                     console.log( 'searching for details on entt -> : : ', entt );
+                    
+                    LAST_ENT_TEAM_SELECTED = (valm >> 24) & 0x000000FF; 
+                    console.log('LAST_ENT_TEAM_SELECTED', LAST_ENT_TEAM_SELECTED);
+
+                    LAST_ENT_SELECTED_HAS_ALLEG = (ALL_FULLENTS[entt][4] & ( 1 << 2 )) > 0;
+
+                    console.log("LAST_ENT_SELECTED_HAS_ALLEG", LAST_ENT_SELECTED_HAS_ALLEG);
+
                     
                     // TODO should be a page turning sfx 
                     addToConsole( 'SELECTED: ' + (ALL_FULLENTS[entt][0] ), { color: 'green', noRemove: true });
@@ -426,7 +434,7 @@ ALL_DMGS = dmgprofs;
         config.STARTING_BUFFER = ENTIRE_LAST_LOADED;
     }
     else{
-        let NUM_OF_RANOMD_STRUCTS = 300;
+        let NUM_OF_RANOMD_STRUCTS = 420;
         let NUM_OF_FOLIAGE_SPOTS = 111; 
 
         if( LAST_MAP_CONFIG_SELECTED === 0 ){

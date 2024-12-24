@@ -25,7 +25,6 @@ var bp_ent_std1_val: u32 = ${STAD.ent_stim_bp}u;
 var total_entities: u32 = ${FullEntEntries.length}u;
 var std_max_water: f32 = ${CL.STD_MAX_FORCE_B}f;
 
-var water_shallow: u32 = ${STAD.ent_water_shallow}u;
 
 // WEATHER SYSYEM::::::::::::::::::
 
@@ -210,6 +209,12 @@ teamNumber = (teamNumber >> 0) & 0x000000FF;
 var counter: u32 = u32(gametime) + EZX * 1252u + EZY * 1787u;
 var counteSr: u32 = u32(gametime);
 
+var isLeader: bool = false;
+
+if( ((EZ_STORAGE[ 0u + ent_start + (entityType * ent_chunk) ] >> 3) & 1u) > 0u){
+    isLeader = true;
+}
+
 var ENT_LOOKED = EZ_STORAGE[ 1u + ent_start + (entityType * ent_chunk) ];
 var ALLOWED_ORIENT = EZ_STORAGE[ 2u + ent_start + (entityType * ent_chunk) ];
 var steppableThing: u32 = (ALLOWED_ORIENT >> 16) & 0x000000FF;
@@ -383,15 +388,16 @@ loop{
     var memval: u32 = 0;
 
     var scentsRawSumTotal: f32 = 0f;            // ( 0-32 value ) mapped from the highest value 
-    var refinedSCentsSumTotal: f32 = 0f;        // Total refined scent ( ^ this number through pow(4))
-    var allScentsSignficantlyBright: f32 = 0f;  // # of scents that are brighter than 255-32
 
-    var allScentsPresentAtAll: f32 = 0f; 
+    var highestGlowScentFound: f32 = 0f;
+    var highestScentIndFound: u32 = 0u;
+    var numScentsFound: f32 = 0f;
+    var intensirty: f32 = 0f;   // used often
 
     // var rawTotalScent: f32 = 0;     // The schmorgesborg view 
 
 
-    // FIRST 3 path finding slots
+    // GO THROGH ALL THE PATH FINDING SCENTS
     var i: u32 = 0u;
     loop {               
         if i >= nScents { break; }
@@ -399,9 +405,6 @@ loop{
         if( i % 4 == 0 ){
             memval = EZ_STATE_IN[ EZ_CELL_IND + (startOcells + tempi)*EZ_TOTAL_CELLS];
         }
-
-
-
 
         // GENERATE THE DIFFERETN TYPES OF COLOUR for each scent
         //tempi = EZ_RAND( tempi * 1237 + memval * 3171 );
@@ -419,49 +422,42 @@ loop{
             } 
         }
 
-
-
-        if( tempi > 1u ){           // Colour fades rapidly after this distance anyways 
-                                    //so dont include less signficant scents than this
-            var intensirty: f32 = f32(tempi) / 255f;
-
-            // if( intensirty > 0.78 ){
-            //     allScentsThatAreSignif+=1f;
-            // } 
-
-            intensirty = max(0f, ((intensirty-(220f/255f)) / (35f/255f)) );
-            scentsRawSumTotal = scentsRawSumTotal + intensirty;
-            
-            if( intensirty > 0f ){
-                allScentsSignficantlyBright = allScentsSignficantlyBright + 1f;
-            }  
-
-            var tempDesirdVal: f32 = 0f + intensirty;
-            intensirty = pow( intensirty, 4); 
-
-            refinedSCentsSumTotal = refinedSCentsSumTotal + intensirty*3;//1.5f; 
-            allScentsPresentAtAll = allScentsPresentAtAll + 1f;
-
-            // Glow mode:
-            if( rMode == 1u ){
-                gottenR = gottenR + cellCols[i].x * intensirty;  //EZ_RAND( 1491 + i * 7237 + i*i*33 ) * intensirty;
-                gottenG = gottenG + cellCols[i].y * intensirty;  //EZ_RAND( 1491 + i * 8137 + i*i*17 ) * intensirty;
-                gottenB = gottenB + cellCols[i].z * intensirty;  //EZ_RAND( 1491 + i * 5887 + i*i*11 ) * intensirty;
+        // Glow mode:
+        if( rMode == 1u ){
+            var grad: f32 = 15f;        //   <-     RADIUS OF GLOW......
+            intensirty = f32(tempi) - (255f-grad);
+            intensirty = max( 0f, intensirty );// / 255f;
+            if( intensirty>0f ){
+                numScentsFound = numScentsFound + 1f;
             }
-            // Schmorgesbrog
-            // else if( rMode == 2u ){
-            //     //intensirty = f32(tempi);
-            //     gottenR = gottenR + cellCols[i].x;//*intensirty;  //EZ_RAND( 1491 + i * 7237 + i*i*33 ) * intensirty;
-            //     gottenG = gottenG + cellCols[i].y;//*intensirty;  //EZ_RAND( 1491 + i * 8137 + i*i*17 ) * intensirty;
-            //     gottenB = gottenB + cellCols[i].z;//*intensirty;  //EZ_RAND( 1491 + i * 5887 + i*i*11 ) * intensirty;
-            // }
+            intensirty /= grad;// NOW BETWEEN 0 and 12
+            intensirty = pow( intensirty, 2);
+
+            if( intensirty > highestGlowScentFound ){
+                highestGlowScentFound = intensirty;
+                highestScentIndFound = i;
+            }//highestGlowScentFound = max( intensirty, highestGlowScentFound );   // <- used for how much to blend it into the bg later
+
+            gottenR += cellCols[i].x * intensirty;
+            gottenG += cellCols[i].y * intensirty;
+            gottenB += cellCols[i].z * intensirty;
         }
-
-
-
         
-        
-        //refinedSCentsSumTotal = refinedSCentsSumTotal + 1;
+        // Any scent at all represnts their col.
+        else if( rMode == 2u ){
+            if( tempi > 225u ){   // <- if it's over 0 count it as the scent being present
+                intensirty = f32(tempi / 64u) + 1f;// will be equal to 1 to 4
+                intensirty /= 4f;
+                //if( i > nScents - 4u - 1u ){    // TEWAM ONLY SCENT
+                    //intensirty = 1f;
+                gottenR += cellCols[i].x * intensirty;
+                gottenG += cellCols[i].y * intensirty;
+                gottenB += cellCols[i].z * intensirty;
+                numScentsFound = numScentsFound + 1f;
+                //}
+            }
+        }
+ 
 
         i = i + 1u;
     }
@@ -470,26 +466,56 @@ loop{
     // Depending on whatchu want
     // Glow mode
     if(rMode == 1u){
-        gottenR = gottenR / max(1,allScentsPresentAtAll);
-        gottenG = gottenG / max(1,allScentsPresentAtAll);
-        gottenB = gottenB / max(1,allScentsPresentAtAll);
-        scentsRawSumTotal = scentsRawSumTotal /  max(1,allScentsPresentAtAll);
+        // LEADER VIEW OVERRIDE BG flash
+        if( isLeader ){     // && rMode == 2u
+            var bgflashr: f32 = 0.6f + cos(gametime*0.9f) * 0.4f; 
+            gottenR = bgflashr;
+            gottenG = bgflashr;
+            gottenB = bgflashr;
+        }
+        // No leader just do normal glow functionalirty
+        else{
+
+            // BEFORE CONSTRAINING THE RGB of the background
+            // give more weight to the highest 
+
+            gottenR = min( 0.89f, gottenR);
+            gottenG = min( 0.89f, gottenG);
+            gottenB = min( 0.89f, gottenB);
+
+            if( numScentsFound > 0f ){  // number of scents found
+                gottenR += (cellCols[highestScentIndFound].x - gottenR) * 0.28f;
+                gottenG += (cellCols[highestScentIndFound].y - gottenG) * 0.28f;
+                gottenB += (cellCols[highestScentIndFound].z - gottenB) * 0.28f;
+            }
+        }
     }
-    // Schmorgesborg
+    // Any scent at presence at all
     else if(rMode == 2u){
-        // gottenR = gottenR / max(1,allScentsPresentAtAll);
-        // gottenG = gottenG / max(1,allScentsPresentAtAll);
-        // gottenB = gottenB / max(1,allScentsPresentAtAll);
-        // scentsRawSumTotal = scentsRawSumTotal /  max(1,allScentsPresentAtAll);
+        
+        // LEADER VIEW OVERRIDE BG flash
+        if( isLeader ){     // && rMode == 2u
+            var bgflashr: f32 = 0.6f + cos(gametime*0.9f) * 0.4f; 
+            gottenR = bgflashr;
+            gottenG = bgflashr;
+            gottenB = bgflashr;
+        }
+
+        else if( numScentsFound > 0f ){
+            gottenR /= numScentsFound;
+            gottenG /= numScentsFound;
+            gottenB /= numScentsFound;
+        }
     }
 
 
+    // AT THIS POINT ^^^^^^^^^^^^^ gottenR, gottenG, and gottenB are all 
+    // THE BACKGROUND COLOUR if it doesnt get interceped by a pixel
+    // from an ENTITY entityType >0u
    
+ 
 
-    //var homScent: f32 = f32( scntSlot0 & 0x000000FF );
-    //var resScent: f32 = f32( (scntSlot0 >> 8) & 0x000000FF ); 
-    //homScent = max(0, 1 - (1-homScent/255f)*63 );
-    //resScent = max(0, 1 - (1-resScent/255f)*63 );
+
 
 
     // INTERMISSION JUST TO GRAB THE MINIMUM VISION VALUE TO SEE IF SAFE PALCE ALLOWED ORNOT
@@ -668,6 +694,20 @@ loop{
                 gottenB += ((teamColsHighlts[ teamNumber ].z+(1f-teamColsHighlts[ teamNumber ].z)*0.4)*0.65 - gottenB ) * distFromTod;
             }
         }
+
+        // LEADER HIGHLIGHT VIEW OVERRIDE
+        if( isLeader && (rMode == 1u || rMode == 2u) ){
+            var lflashr: f32 = 0.6f + sin(gametime*1.3f) * 0.4f; 
+            gottenR += (teamColsHighlts[ teamNumber ].x - gottenR) * lflashr;
+            gottenG += (teamColsHighlts[ teamNumber ].y - gottenG) * lflashr;
+            gottenB += (teamColsHighlts[ teamNumber ].z - gottenB) * lflashr;
+        }
+        // Opacity applied to entities that are not leaders for clarity of vision (because u gotta clik on onem)
+        else if( !isLeader && rMode == 2u ){
+            gottenR *= 0.39f;
+            gottenG *= 0.39f;
+            gottenB *= 0.39f;
+        }
         
         
     }
@@ -709,16 +749,16 @@ loop{
 
         // If more than one scent found here (NOT!),
         //      AND   Depending on render mode maybe dont ebeven disapyl the agoten
-        if( rMode == 0u ){     //allScentsPresentAtAll < 1f ||
+        if( rMode == 0u ){
             gottenR = f32(bgPix & 0xFF) / 255f;         //0f;
             gottenG = f32((bgPix >> 8) & 0xFF) / 255f;
             gottenB = f32((bgPix >> 16) & 0xFF) / 255f;
         }
         // For GLOW
-        else if(rMode == 1u){
-            gottenR -= (gottenR  - (f32(bgPix&0xFF)/255f))           * ( 0.45*scentsRawSumTotal );//refinedSCentsSumTotal
-            gottenG -= (gottenG  - (f32((bgPix >> 8) & 0xFF)/255f))  * ( 0.45*scentsRawSumTotal );//refinedSCentsSumTotal
-            gottenB -= (gottenB  - (f32((bgPix >> 16) & 0xFF)/255f)) * ( 0.45*scentsRawSumTotal );//refinedSCentsSumTotal
+        else if(rMode == 1u){ 
+            gottenR += (((f32(bgPix&0xFF)/255f))           -gottenR) * ( 1f-(highestGlowScentFound*0.85)); //(HIGHEST VAL? so blend the LEAST into the bg colour)
+            gottenG += (((f32((bgPix >> 8) & 0xFF)/255f))  -gottenG) * ( 1f-(highestGlowScentFound*0.85)); //(HIGHEST VAL? so blend the LEAST into the bg colour)
+            gottenB += (((f32((bgPix >> 16) & 0xFF)/255f)) -gottenB) * ( 1f-(highestGlowScentFound*0.85)); //(HIGHEST VAL? so blend the LEAST into the bg colour)
         }
         // For team displacements
         else if(rMode == 2u){
@@ -730,9 +770,12 @@ loop{
             }
             else{
                 // Normal rMode == 0 backgroudn texture
-                gottenR = f32(bgPix & 0xFF) / 255f;
-                gottenG = f32((bgPix >> 8) & 0xFF) / 255f;
-                gottenB = f32((bgPix >> 16) & 0xFF) / 255f;
+                // gottenR = f32(bgPix & 0xFF) / 255f;
+                // gottenG = f32((bgPix >> 8) & 0xFF) / 255f;
+                // gottenB = f32((bgPix >> 16) & 0xFF) / 255f;
+                gottenR += (((f32(bgPix&0xFF)/255f))           -gottenR) * ( 0.61f ); //(HIGHEST VAL? so blend the LEAST into the bg colour)
+                gottenG += (((f32((bgPix >> 8) & 0xFF)/255f))  -gottenG) * ( 0.61f ); //(HIGHEST VAL? so blend the LEAST into the bg colour)
+                gottenB += (((f32((bgPix >> 16) & 0xFF)/255f)) -gottenB) * ( 0.61f ); //(HIGHEST VAL? so blend the LEAST into the bg colour)
             }
         }
 

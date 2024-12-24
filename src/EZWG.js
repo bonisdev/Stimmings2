@@ -2202,18 +2202,32 @@ class EZWG {
                     this.liveInput[2] = this.ezweb.dragEndX;
                     this.liveInput[3] = (this.ezweb.GRID_SIZE - 1) - this.ezweb.dragEndY;
                     
+                    
+                    this.liveInput[4] = CURRENT_TOOL;       // DEFUALT SET IT UP HERE
+
                     if( CURRENT_TOOL === 3 || CURRENT_TOOL === 2 ){
 
-                        if( this.placeByTheRules ){
-                            CURRENT_TOOL = 2;
+                        // IF UNLAWAFUL EYE DROPPPING OF AN ENTITY THAT DOESNT BELONG TO YOU
+                        if( CURRENT_TOOL === 2 && LAST_ENT_SELECTED_HAS_ALLEG && LAST_ENT_TEAM_SELECTED !== CURRENT_SESSION_PLAYER_ID ){
+                        
+                            this.liveInput[4] = 0;      // cancel movment
                         }
+
                         else{
-                            CURRENT_TOOL = 3;
+
+                            if( this.placeByTheRules ){
+                                CURRENT_TOOL = 2;
+                            }
+                            else{
+                                CURRENT_TOOL = 3;
+                            }
+                            
+                            this.liveInput[4] = CURRENT_TOOL;
                         }
+
 
                     }
 
-                    this.liveInput[4] = CURRENT_TOOL;
                     // if( this.lastKeyDetected === '2' ){
                     //     this.liveInput[4] = 2;
                     // }

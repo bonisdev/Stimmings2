@@ -172,7 +172,7 @@ function NU_HOSTILE_GAIA( entNameVariable, miobj, frameTime, deathOset, healthh,
         EZWG.createPackedU32_16( 65535, 65535 ),            // Trans 2 max, Trans 1 max
         
         EZWG.createPackedU32_16( dmgPower, 1 ),                    // Badness power, Goodness power (badness amt hurts YOU when spawn of result t ype 4 occured)
-        EZWG.createPackedU32_16( 0, 0 ),                    // Trans 2 power, Trans 1 power
+        EZWG.createPackedU32_16( 1, 1 ),                    // Trans 2 power, Trans 1 power
     
         EZWG.createPackedU32_16( 0, 0 ),                    // Badness ambient, Goodness ambient
         EZWG.createPackedU32_16( 0, 0 ),                    // Trans 2 ambient, Trans 1 ambient
@@ -184,7 +184,7 @@ function NU_HOSTILE_GAIA( entNameVariable, miobj, frameTime, deathOset, healthh,
                                                             // 0 = self transofmr, 1 = random direction spawn, 2=random direction spawn NO TEAM,     3 = inherit velocity..., 4=damage yurself on spawn from OWN power
     
         EZWG.createPackedU32( 0, 0, 0, 0 ),              //  -ONE Shot or not (1 yes, 0 is cummulatibve)
-        EZWG.createPackedU32_16( CL.BP_STD_BUILD_COST, 0 ),            // BP build cost, drop value every move
+        EZWG.createPackedU32_16( CL.BP_AVE_HG_BUILD_COST, 0 ),            // BP build cost, drop value every move
     
     ]);
 

@@ -72,7 +72,7 @@ if( ((1 << 7) & myPhysics) > 0 ){
 var myDesire = EZ_STORAGE[ 2u + ent_start + (entityType * ent_chunk) ];
 var myFreq: u32 = (myDesire >> 8) & 0x000000FF;
 var myStepable: u32 = (myDesire >> 16) & 0x000000FF;
-myStepable = myStepable & 1u;   //JUST SUE THE FIRST BIT
+myStepable = myStepable & 1u;   //JUST USE THE FIRST BIT
 var sprOrienProfile: u32 = (myDesire >> 24) & 0x000000FF;     // when to flip
 myDesire = (myDesire >> 0) & 0x000000FF;
  
@@ -666,10 +666,17 @@ loop {
         if( myStepable > 0u ){  //myDesire == 0u || //<- if u leave this in - nothing spawns anymore XD
             currScScore = 0u;
         }
-        // WANDER anywhere,         OR ttrying to spawm,  
-        else if( myDesire == 1u || potentilNxtSpwn > 0u ){                 // Wander, anywhere good , OR if trying to spawn just pick RANDOM
+        // WANDER anywhere,         OR ttrying to spawm,    OR intert gaia wander which gets sucked into processor scent
+        else if( myDesire == 1u || potentilNxtSpwn > 0u || myDesire == 23u ){                 // Wander, anywhere good , OR if trying to spawn just pick RANDOM
             currScScore = EZ_RAND_U( iw*pPrior + tesr + ( pPrior*83+ EZX*iw*1173 + EZY*iw*1397 ) );
             currScScore = EZ_RAND_U( currScScore + iw*iw ) % 256;
+
+            // Processor scent case
+            if( myDesire == 23u ){
+                if( ((godlyscnts >> 8) & 0x000000FF) > 230u ){ // If processing scent is greater than this val
+                    currScScore = 256u + ((godlyscnts >> 8) & 0x000000FF);  // this ensures way more important than the randomness
+                }
+            }
         }
         else if( myDesire == 8u ){            // GO TO RES (stimmers)
             currScScore = (bitind >> 8) & 0x000000FF;   // Score the amount of res scent here
@@ -812,14 +819,17 @@ loop {
             }
         }
 
-        // SURFACE WATER PLAY ONLY...
-        else if( myDesire == 23 ){
-            if( waterLvl > 0u ){
-                currScScore = EZ_RAND_U( iw*pPrior + tesr + ( pPrior*183+ EZX*iw*2173 + EZY*iw*3397 ) );
-                currScScore = EZ_RAND_U( currScScore + iw*iw ) % 256;
-            }
-            
+        // WANDER except when u are close to the 'PROCESSOR' scent, then just shuffle towards it
+        // else if( myDesire == 23 ){
+        //     if( waterLvl > 0u ){
+        //         currScScore = EZ_RAND_U( iw*pPrior + tesr + ( pPrior*183+ EZX*iw*2173 + EZY*iw*3397 ) );
+        //         currScScore = EZ_RAND_U( currScScore + iw*iw ) % 256;
+        //     } 
+        // }
 
+        // PROCESSOR
+        else if( myDesire == 24 ){
+            currScScore = (godlyscnts >> 8) & 0x000000FF;  // go towards the processor secnent
         }
 
 
@@ -1004,7 +1014,11 @@ if( entityType == 0u || myStepable > 0u ){
             bitind = EZ_STORAGE[ (nextSpawn/2) + 14u + ent_start + (bitind * ent_chunk) ];  // Get the off spring resulting entity!
             entityType = ( (bitind >> ((nextSpawn%2)*16)) & 0x0000FFFF );
 
-            if(entityType < 1u || resetTeam == 2u){  // (it had to atleast be 1 to trigger the 'YES' to SPAWNING last step, so if it's 2 then no team)
+            // If no allegiance possible just remove tem
+            if( ((1 << 2) & (EZ_STORAGE[ 0u + ent_start + (entityType * ent_chunk) ])) < 1  ){
+                teamNumber = 0u;    // allegiance is not possible for the spawned entity so remove the team
+            }
+            else if(entityType < 1u || resetTeam == 2u){  // (it had to atleast be 1 to trigger the 'YES' to SPAWNING last step, so if it's 2 then no team)
                 teamNumber = 0u;    // set the team to nothing if youre spawning nothing..
             }
             else if(resetTeam == 3u ){
@@ -1455,7 +1469,8 @@ loop {
 
     // APPLY emission (+/or if ALLEGIANCEd physics tag)
     tmpcrvl = ( crvl >> (8u*(i%4)) ) & 0x000000FF;      //-(((THIS IS THE OVERRIDE AREA WHERE TEAM SCENT GETS INJUECTED)))
-    if( teamNumber > 0u && i < 16u && i > 11u){                           // REALLLY U G L Y   Code  but gotta check for team
+    //  team num            mysteppable     
+    if( teamNumber > 0u && myStepable == 0u && i < 16u && i > 11u){                           // REALLLY U G L Y   Code  but gotta check for team
         if(teamNumber-1u == i - 12u){
             tmpcrvl = 255;    
         }
@@ -1907,16 +1922,16 @@ if( insideX == 1 && insideY == 1 ){
 
 
     if( sfx_whichTrigg > 0 ){   // Normal 1,2,3,4 channel sfx trigggers
-        EZ_SFX[bitind + crvl*EZ_SFX_SIZE] = (sfx_whichTrigg << 16) | sfx_startingEnt;//entityType;
+        EZ_SFX[bitind + crvl*EZ_SFX_SIZE] = (teamNumber << 24) | (sfx_whichTrigg << 16) | sfx_startingEnt;//entityType;
     }
     else if(sfx_startingEnt != entityType && sfx_startingEnt == 0){    // Big step on special one
-        EZ_SFX[bitind + crvl*EZ_SFX_SIZE] = (5 << 16) | entityType;
+        EZ_SFX[bitind + crvl*EZ_SFX_SIZE] = (teamNumber << 24) | (5 << 16) | entityType;
     }
     else if(sfx_startingTemNum != teamNumber && sfx_startingSteppable < 1u ){    // TEAM CONVERSION s[ecoa; trogger]
-        EZ_SFX[bitind + crvl*EZ_SFX_SIZE] = (6 << 16) | entityType;
+        EZ_SFX[bitind + crvl*EZ_SFX_SIZE] = (teamNumber << 24) | (6 << 16) | entityType;
     }
     else{
-        EZ_SFX[bitind + crvl*EZ_SFX_SIZE] = 0 | entityType;
+        EZ_SFX[bitind + crvl*EZ_SFX_SIZE] = (teamNumber << 24) | (0 << 16) | entityType;
     }
 }
 
