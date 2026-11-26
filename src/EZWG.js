@@ -94,6 +94,22 @@ class EZWG {
     static KEY_PAN_TOP_PX_PER_SEC = 900
     static KEY_PAN_ACCEL = 0.35
 
+    //  ──────────  THE PERFORMANCE READOUT (the admin tools' PERFORMANCE box)  ──────────
+    // null = off, and then every hook below is one property read and a branch not
+    // taken. index2.html (THE PERFORMANCE READOUT) puts a counters record here while
+    // the admin tools are up and takes it away when they shut. It is on the CLASS,
+    // not the instance, so a world change (a new EZWG) carries straight on.
+    //
+    // Nothing here can reach the simulation: the hooks only read performance.now()
+    // and add to the record, and the GPU timestamps ride on the passes as
+    // timestampWrites, which time a pass without changing what it computes. With
+    // the record off, the passes are encoded exactly as they were before it existed.
+    static PERF = null
+
+    // GPU timestamps resolved per batch: up to this many passes (two timestamps
+    // each), read back in one map about once a second - not one map per pass.
+    static PERF_TS_PAIRS = 192
+
     constructor( config = {}, specialLiveInputOverride ={}) {
  
 
@@ -119,6 +135,7 @@ class EZWG {
             PASS_INPUT_FUNC: null,  // ( step, liveInput ) => READ-ONLY look at exactly what pass `step` is about to read
             CELL_SIZE: 8,
             AUTO_RESIZE_CANVAS: false,  // canvas tracks the window instead of sitting at monitor size
+            ASYNC_PIPELINES: false,     // compile the two pipelines without holding the page up - see init
             //  experimental right now
                 FRAG_PIXEL_MODE: false, // if true, it's a fragment shader, and every pixel gets the fragment code run on it
                 //FRAG_PIXEL_PER_COMP: 1,  // how many pixels per comp used in FRAG MODE ONLY 
@@ -168,6 +185,20 @@ class EZWG {
         this.pendingSaveMetaJson = null;
         this.CELL_SIZE = this._validatePositiveInteger(this.config.CELL_SIZE, 'CELL_SIZE');
         this.AUTO_RESIZE_CANVAS = this.config.AUTO_RESIZE_CANVAS === true;
+
+        // ── ASYNC_PIPELINES - THE COMPILE, AWAITED INSTEAD OF WAITED OUT ──────────
+        // The two pipelines' shaders are big: compiling them takes ~11 seconds on the dev
+        // machine (the compute shader ~8 of them), and created the plain way the page's
+        // main thread is held for all of it - the storage upload right after them waits
+        // on the GPU process until the compile is done. On, init() awaits
+        // createRenderPipelineAsync / createComputePipelineAsync instead: the same
+        // pipelines, and the page stays alive meanwhile.
+        //
+        // OFF FOR THE GAME, ON PURPOSE. The game's world is EZ_EXAMPLE the moment it is
+        // made, and that freeze is all that has ever kept every key, click and timer of
+        // the page away from an engine half way through init(). Only THE INTRO's world
+        // (Ex9_Stimmings2.js) turns it on: nothing but the intro ever holds that engine.
+        this.ASYNC_PIPELINES = this.config.ASYNC_PIPELINES === true;
 
         this.FRAG_PIXEL_MODE =  this.config.FRAG_PIXEL_MODE;
             this.FRAG_PIXEL_PER_COMP = 1;   // defualt is 1 and it's not specifiable from the constructor it gets generated
@@ -973,9 +1004,17 @@ class EZWG {
 		// Try to get more detailed info if the API exists, otherwise fall back
 		let gpuLabel = 'Unknown GPU';
 
+		// Kept for the admin tools' PERFORMANCE box: which GPU this is, and whether
+		// Chromium handed us its software fallback (SwiftShader runs the "GPU" on
+		// the CPU, and every frame number means something else then).
+		this.GPU_ADAPTER_INFO = null;
+		this.GPU_IS_FALLBACK = !!adapter.isFallbackAdapter;
+		this.GPU_LIMITS = { maxBufferSize, maxStorageBufferBindingSize };
+
 		if ('requestAdapterInfo' in adapter) {
 			try {
 				const info = await adapter.requestAdapterInfo();
+				this.GPU_ADAPTER_INFO = info;
 				// vendor / architecture / description may or may not be present
 				const parts = [
 					info.vendor,
@@ -1037,12 +1076,36 @@ class EZWG {
 			throw new Error("No appropriate GPUAdapter found!!!!5545445");
 		}
 		//this.device = await adapter.requestDevice();
+		// 'timestamp-query' is asked for only so the admin tools' PERFORMANCE box
+		// can time the compute pass and the draw on the GPU itself. Having it
+		// changes nothing until a pass is given timestampWrites, which only
+		// happens while that box is open; an adapter without it gets the same
+		// device as before and the box falls back to the readback round trip.
+		this.GPU_HAS_TIMESTAMPS = adapter.features.has( 'timestamp-query' );
 		this.device = await adapter.requestDevice({
+            requiredFeatures: this.GPU_HAS_TIMESTAMPS ? [ 'timestamp-query' ] : [],
             requiredLimits: {
                 maxBufferSize: maxBufferSize,
                 maxStorageBufferBindingSize: maxStorageBufferBindingSize,
               },
         }); 
+
+        // GPU MEMORY, COUNTED AT THE DOOR. WebGPU will not say how much video
+        // memory a page holds, so every buffer this device makes is added up as
+        // it is made - the PERFORMANCE box shows the total. Buffers here live as
+        // long as the device does, so the sum is what this world holds. Costs one
+        // addition per createBuffer, and nothing makes a buffer per tick.
+        this.GPU_BUFFER_BYTES = 0;
+        this.GPU_BUFFER_COUNT = 0;
+        {
+            const rawCreateBuffer = this.device.createBuffer.bind( this.device );
+            this.device.createBuffer = ( desc ) => {
+                const buf = rawCreateBuffer( desc );
+                this.GPU_BUFFER_BYTES += Number( desc.size ) || 0;
+                this.GPU_BUFFER_COUNT++;
+                return buf;
+            };
+        }
 		this.context = this.canvas.getContext("webgpu");
 		const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
 		this.context.configure({
@@ -1633,8 +1696,8 @@ class EZWG {
 			code: cellShaderWSGL
 		});
 
-		// Create a pipeline that renders the cell.
-		this.cellPipeline = this.device.createRenderPipeline({
+		// Create a pipeline that renders the cell. (ASYNC_PIPELINES: awaited, see the constructor.)
+		const cellPipelineDesc = {
 			label: "Cell pipeline",
 			layout: pipelineLayout,
 			vertex: {
@@ -1649,7 +1712,9 @@ class EZWG {
 					format: canvasFormat
 				} ]
 			}
-		});
+		};
+		this.cellPipeline = this.ASYNC_PIPELINES ? await this.device.createRenderPipelineAsync( cellPipelineDesc )
+		                                         : this.device.createRenderPipeline( cellPipelineDesc );
 
 
 
@@ -2001,15 +2066,17 @@ class EZWG {
 			code: simulationWSGLCode
 		});
 
-		// Create a compute pipeline that updates the game state.
-		this.simulationPipeline = this.device.createComputePipeline({
+		// Create a compute pipeline that updates the game state. (ASYNC_PIPELINES: awaited.)
+		const simulationPipelineDesc = {
 			label: "Simulation pipeline",
 			layout: pipelineLayout,
 			compute: {
 				module: simulationShaderModule,
 				entryPoint: "computeMain",
 			}
-		});
+		};
+		this.simulationPipeline = this.ASYNC_PIPELINES ? await this.device.createComputePipelineAsync( simulationPipelineDesc )
+		                                               : this.device.createComputePipeline( simulationPipelineDesc );
 
 		// Create a uniform buffer that describes the grid.
 		var uniformArray;
@@ -3298,6 +3365,19 @@ class EZWG {
 
         this.cellSfxBufferForReadOnCPU.mapAsync( GPUMapMode.READ, 0, this.sfxValues.byteLength ).then(mappedStaginBuffer => {
 
+            // THE PERFORMANCE READOUT: submit-to-here is the tick's GPU round trip,
+            // and the handler below (the census, the sfx, the king words) is CPU
+            // time the tick loop never sees - it runs in this callback.
+            const perf = EZWG.PERF;
+            const perfT0 = perf ? performance.now() : 0;
+            if( perf && this.perfSubmitAt ){
+                const rt = perfT0 - this.perfSubmitAt;
+                this.perfSubmitAt = 0;
+                perf.rtMs += rt;
+                perf.rtN++;
+                if( rt > perf.rtMax ){ perf.rtMax = rt; }
+            }
+
             // NO COPY. The handler gets a view straight onto the mapped range -
             // this used to slice(0) the whole thing first, which meant allocating
             // and memcpying the entire readback (128KB now that the census rides
@@ -3341,6 +3421,8 @@ class EZWG {
                 this.cellSfxBufferForReadOnCPU.unmap();
                 this.READ_SFX_BUFFER_BUSY = false;
             }
+
+            if( perf ){ perf.readMs += performance.now() - perfT0; }
 
             // ...and NOW the CPU knows everything this tick did, which is the
             // instant a save's trailer has to be taken. No-op on any tick that is
@@ -3646,6 +3728,11 @@ class EZWG {
     // Do a full pass
     run(){
 
+        // THE PERFORMANCE READOUT - the time this tick costs the CPU, counted
+        // below where a pass really happened. Off, this is the whole cost.
+        const perf = EZWG.PERF;
+        const perfT0 = perf ? performance.now() : 0;
+
 
         // READBACK_LOST stops ordinary ticks dead (see the note over it) and lets
         // exactly one thing through: a save, because the player needs their world
@@ -3699,8 +3786,13 @@ class EZWG {
             const RESCUE_SAVE = ( this.READBACK_LOST && this.WANTING_TO_SAVE );
 
             let encoder = this.device.createCommandEncoder();
-            // Start a compute pass
-            let computePass = encoder.beginComputePass();
+            // Start a compute pass. With the PERFORMANCE box open it carries two
+            // GPU timestamps (perfTimestampWrites); otherwise it is begun with no
+            // descriptor at all, exactly as it always was. A rescue save's pass is
+            // empty, so it is not timed - it would read as a free tick.
+            const perfTsw = ( perf && !RESCUE_SAVE ) ? this.perfTimestampWrites( 0 ) : null;
+            let computePass = perfTsw ? encoder.beginComputePass( { timestampWrites: perfTsw } )
+                                      : encoder.beginComputePass();
 
 
             
@@ -4143,6 +4235,11 @@ class EZWG {
                 encoder_mr_cpu_helper.finish()
             ] );
 
+            // From here to the sfx/census map coming back is the tick's GPU round
+            // trip (mapSfxReadback times it) - the PERFORMANCE box's GPU reading on
+            // an adapter with no timestamps.
+            if( perf ){ this.perfSubmitAt = performance.now(); }
+
             if( doReadBack === true ){
                 this.READ_BUFFER_BUSY = true;
 
@@ -4373,6 +4470,11 @@ class EZWG {
             //https://github.com/gpuweb/gpuweb/issues/4383
             //what da spruce man
 
+            if( perf ){
+                perf.ticks++;
+                perf.runMs += performance.now() - perfT0;
+            }
+
             return true;    // a compute pass really did happen - see tick()
         }
         else if(!this.device){
@@ -4380,6 +4482,15 @@ class EZWG {
         }
         else{
             console.log('READ BUFFER BUSY: ', this.READ_BUFFER_BUSY, 'at time index', this.step)
+
+            // A tick the GPU was not ready for: last tick's sfx/census map has not
+            // come back yet, so the sim skips this one. THE sign of a GPU that can
+            // not keep up (a save's grid copy is counted apart - that one is
+            // expected to hold a tick or two).
+            if( perf ){
+                if( this.READ_SFX_BUFFER_BUSY && !this.CURRENTLY_SAVING ){ perf.skipGpu++; }
+                else{ perf.skipOther++; }
+            }
         }
         //}
 
@@ -4675,6 +4786,10 @@ class EZWG {
 
         if( !this.device || !this.loaded || this.suicide || !this.cellPipeline ){ return; }
 
+        // THE PERFORMANCE READOUT - see the bottom of this method.
+        const perf = EZWG.PERF;
+        const perfT0 = perf ? performance.now() : 0;
+
         const drawStep = replayPrev ? Math.max( 0, this.step - 1 ) : this.step;
 
         if( replayPrev ){
@@ -4746,14 +4861,18 @@ class EZWG {
         this.device.queue.writeBuffer( this.userInputTempStorage, 0, this.liveInput );
 
         const rEncoder = this.device.createCommandEncoder();
-        const pass = rEncoder.beginRenderPass( {
+        const rPassDesc = {
             colorAttachments: [ {
                 view: this.context.getCurrentTexture().createView(),
                 loadOp: "clear",
                 clearValue: { r: 0, g: 0, b: 0, a: 1 },//{ r: 0, g: 0, b: 0.4, a: 1.0 },
                 storeOp: "store",
             } ]
-        } );
+        };
+        // Timed on the GPU only while the PERFORMANCE box is open.
+        const perfTsw = perf ? this.perfTimestampWrites( 1 ) : null;
+        if( perfTsw ){ rPassDesc.timestampWrites = perfTsw; }
+        const pass = rEncoder.beginRenderPass( rPassDesc );
 
         // Draw the grid.
         pass.setPipeline( this.cellPipeline );
@@ -4776,6 +4895,108 @@ class EZWG {
         if( replayPrev ){
             this.liveInput[ this.USER_INPUT_BUFFER_SIZE - 1 ] = Math.max( 0, this.step - 1 );
         }
+
+        // THE PERFORMANCE READOUT. A draw's CPU cost is the encode and submit
+        // above; the GPU's is in the timestamps. The gap is wall time since the
+        // last draw - its worst in a second is the hitch a player would see.
+        // drawMsOut is the part of it the tick loop's own timer did not already
+        // count (phase 0 is drawn inside run(), the rest by sub-frame timers).
+        if( perf ){
+            const t1 = performance.now();
+            const ms = t1 - perfT0;
+            perf.draws++;
+            perf.drawMs += ms;
+            if( !perf.inTick ){ perf.drawMsOut += ms; }
+            if( perf.lastDrawAt ){
+                const gap = perfT0 - perf.lastDrawAt;
+                if( gap > perf.gapMax ){ perf.gapMax = gap; }
+            }
+            perf.lastDrawAt = perfT0;
+        }
+    }
+
+    //  ══════════  THE PERFORMANCE READOUT: GPU TIMESTAMPS  ══════════
+    //  How long a pass really takes ON THE GPU, as opposed to how long the CPU took
+    //  to record it. Only while the admin tools' PERFORMANCE box is open
+    //  (EZWG.PERF), and only on an adapter with 'timestamp-query'.
+    //
+    //  One query set holds PERF_TS_PAIRS passes, a begin and an end each. Every
+    //  pass takes the next pair; perfFlushTimestamps() - about once a second, from
+    //  the page - resolves the pairs used so far into one small buffer and maps it
+    //  ONCE, so the cost is one map a second, not one per pass. The pairs are free
+    //  again as soon as the resolve is SUBMITTED: the queue runs in order, so a
+    //  later pass can not overwrite a pair before the resolve has read it. If the
+    //  set fills before a flush, passes simply go untimed until it comes.
+    //
+    //  kind: 0 = the compute pass (one per tick), 1 = a draw.
+
+    // The timestampWrites for the pass about to be begun, or null.
+    perfTimestampWrites( kind ){
+        if( !this.GPU_HAS_TIMESTAMPS || !this.device ){ return null; }
+        let ts = this.perfTs;
+        if( !ts ){
+            try{
+                const pairs = EZWG.PERF_TS_PAIRS;
+                ts = this.perfTs = {
+                    querySet: this.device.createQuerySet( { type: 'timestamp', count: pairs * 2 } ),
+                    resolveBuf: this.device.createBuffer( { label: 'perf ts resolve', size: pairs * 16,
+                        usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC } ),
+                    readBuf: this.device.createBuffer( { label: 'perf ts read', size: pairs * 16,
+                        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ } ),
+                    kinds: new Uint8Array( pairs ),
+                    used: 0,
+                    mapping: false,
+                };
+            }
+            catch( e ){
+                console.warn( 'performance readout: no GPU timestamps -', e );
+                this.GPU_HAS_TIMESTAMPS = false;
+                return null;
+            }
+        }
+        if( ts.used >= EZWG.PERF_TS_PAIRS ){ return null; }
+        const i = ts.used++;
+        ts.kinds[ i ] = kind;
+        return { querySet: ts.querySet, beginningOfPassWriteIndex: i * 2, endOfPassWriteIndex: i * 2 + 1 };
+    }
+
+    // Resolve the pairs used since the last flush and add them to EZWG.PERF when
+    // the map comes back. Called by the page; a no-op with nothing to read, or
+    // while the last flush's map is still out.
+    perfFlushTimestamps(){
+        const ts = this.perfTs;
+        if( !ts || ts.mapping || ts.used === 0 || !this.device || this.suicide ){ return; }
+
+        const n = ts.used;
+        const kinds = ts.kinds.slice( 0, n );
+        ts.used = 0;
+        ts.mapping = true;
+
+        const enc = this.device.createCommandEncoder();
+        enc.resolveQuerySet( ts.querySet, 0, n * 2, ts.resolveBuf, 0 );
+        enc.copyBufferToBuffer( ts.resolveBuf, 0, ts.readBuf, 0, n * 16 );
+        this.device.queue.submit( [ enc.finish() ] );
+
+        ts.readBuf.mapAsync( GPUMapMode.READ, 0, n * 16 ).then( () => {
+            const t = new BigUint64Array( ts.readBuf.getMappedRange( 0, n * 16 ) );
+            const perf = EZWG.PERF;
+            if( perf ){
+                for( let i = 0;i < n;i++ ){
+                    const b = t[ i * 2 ], e = t[ i * 2 + 1 ];
+                    // a pass the driver did not stamp reads 0, or runs backwards
+                    if( b === 0n || e < b ){ continue; }
+                    const ms = Number( e - b ) / 1e6;
+                    if( ms > 1000 ){ continue; }
+                    if( kinds[ i ] === 0 ){ perf.gpuComputeMs += ms; perf.gpuComputeN++; if( ms > perf.gpuComputeMax ){ perf.gpuComputeMax = ms; } }
+                    else{ perf.gpuDrawMs += ms; perf.gpuDrawN++; if( ms > perf.gpuDrawMax ){ perf.gpuDrawMax = ms; } }
+                }
+            }
+            ts.readBuf.unmap();
+            ts.mapping = false;
+        } ).catch( () => {
+            // the device went with its world - nothing to read, nothing to free
+            ts.mapping = false;
+        } );
     }
 
     // ── DRAWING WHILE PAUSED ────────────────────────────────────────────────
@@ -5232,9 +5453,17 @@ class EZWG {
     // mirroring the shader's `crvl = EZ_SFX_SIZE - (EZY - minY)`. The Y anchor CEILs
     // to match the compute shader's sfxAnchorY (the window runs upward from it) - and
     // it ceils the SAME f32 the shader ceils, see note 2 up top.
+    //
+    // A world no bigger than the window (the 128 map - THE MAP SIZE in index2.html) is all in
+    // it, its rows still counted from the anchor (sfxWholeWorld in the compute shader), crvl
+    // 1 .. 128 round the map: the row ON the anchor is 128 there, where a bigger world leaves
+    // it out of the window (and this says -1, as it always has).
     EZ_SCREEN_TO_SFX_Y( py ) {
         const anchor = Math.ceil( this.EZ_PAN_SEEN( 1 ) ) % this.GRID_SIZE;
         const crvl = anchor - this.EZ_SCREEN_TO_WORLD_Y( py );
+        if( this.GRID_SIZE <= this.SFX_BUFFER_SIZE_LENGTH ){
+            return ( ( (crvl - 1) % this.GRID_SIZE ) + this.GRID_SIZE ) % this.GRID_SIZE;
+        }
         return ( (crvl % this.GRID_SIZE) + this.GRID_SIZE ) % this.GRID_SIZE - 1;
     }
 
